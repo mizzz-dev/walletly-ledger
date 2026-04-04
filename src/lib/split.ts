@@ -9,9 +9,11 @@ const adjustDiff = (results: SplitResult[], total: number): SplitResult[] => {
   const current = results.reduce((acc, v) => acc + v.amount, 0);
   const diff = Number((total - current).toFixed(2));
   if (Math.abs(diff) < 0.01) return results;
-  const sorted = [...results].sort((a, b) => b.amount - a.amount);
-  sorted[0] = { ...sorted[0], amount: Number((sorted[0].amount + diff).toFixed(2)) };
-  return sorted;
+
+  const targetIndex = results.reduce((best, row, index) => (row.amount > results[best].amount ? index : best), 0);
+  return results.map((row, index) =>
+    index === targetIndex ? { ...row, amount: Number((row.amount + diff).toFixed(2)) } : row,
+  );
 };
 
 export const calculateSplit = ({
