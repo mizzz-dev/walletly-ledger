@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="walletly maskable icon">
+  <rect width="512" height="512" rx="128" fill="#1f173f"/>
+  <rect x="72" y="72" width="368" height="368" rx="96" fill="#6d5ef8"/>
+  <path d="M150 216c0-24 20-44 44-44h124c24 0 44 20 44 44v80c0 24-20 44-44 44H194c-24 0-44-20-44-44v-80z" fill="#fff"/>
+  <circle cx="304" cy="256" r="24" fill="#6d5ef8"/>
+</svg>
