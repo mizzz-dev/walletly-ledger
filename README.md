@@ -17,44 +17,41 @@
 - 清算提案ロジック（greedy）と表示
 - 集計ダッシュボード（ダミーデータ + グラフ）
 - Supabase初期スキーマ + RLS方針ファイル
-- 単体テスト（分割ロジック / 清算ロジック / プリセット選択 / プレビュー）
+- 単体テスト（分割ロジック / 清算ロジック / プリセット選択 / プレビュー / Repository整形）
 
-## 分割プリセット管理画面
-- ページ: `/admin/presets`
-- DataTableライクUIで以下に対応
-  - 検索（名前・カテゴリ）
-  - 状態フィルタ（draft/published/archived）
-  - 並び替え（優先度/更新日/名前）
-  - 優先度の直接編集
-  - 新規作成・編集（Sheet風オーバーレイ）
-  - 複製・アーカイブ
-  - 条件指定（最低金額・キーワード・曜日・店舗名）
-  - 端数処理（四捨五入/切り上げ/切り捨て）
-  - 編集中プレビュー
+## 分割プリセットのSupabase永続化（今回）
+- `category_split_presets` を Supabase に永続化し、管理画面と支出作成画面を実データ接続
+- 管理画面 `/admin/presets`
+  - 一覧表示（Supabase）
+  - 新規作成 / 更新 / 複製 / アーカイブ
+  - 状態変更（draft/published/archived）
+  - 優先度更新
+- 支出作成画面 `/transactions/new`
+  - Supabase から `published` のみ取得
+  - 優先度順で最初に一致したプリセットを自動適用
 
-## 支出作成画面での自動適用フロー
-1. カテゴリ・金額・メモ・店舗名・日付を入力
-2. `published` のプリセットを優先度順で探索
-3. 最初に条件一致したプリセットを自動適用
-4. 金額変更時はリアルタイム再計算
-5. 適用中のプリセット名を表示
-6. プレビュー金額はメンバー単位で手動修正可能
+## RLS / ロール制御（最小実装）
+- household メンバーのみプリセット参照可能
+- owner / editor / member が更新可能（viewerは閲覧のみ想定）
+- archived / draft は自動適用対象外（UI一覧には表示可）
 
-## Supabase 接続を見据えた整理（今回時点）
-- `category_split_presets` を想定した `CategorySplitPreset` 型を追加
-- `PresetRepository` インターフェースを追加し、モック実装を分離
-- 将来的に Server Component / Route Handler 経由で `/api/presets` に差し替えやすい構造
+## データアクセス構成
+- `src/lib/preset-repository.ts` : Repository interface + driver切替
+- `src/lib/preset-repository/supabase.ts` : Supabase 実装
+- `src/lib/preset-repository/mock.ts` : モック実装（`NEXT_PUBLIC_USE_MOCK_PRESET=true` で利用）
+- `src/lib/preset-service.ts` : 画面から呼ぶユースケース層
+- `app/admin/presets/actions.ts` : 管理画面更新系の Server Action
 
-## 現時点で未実装
-- プリセット・支出データの永続化（現在はモック）
-- `/api/presets` の Route Handler 実装
-- Supabase Auth連携とRLSの本番運用
-- 監査ログ・変更履歴
+## 現時点の制約
+- 世帯ID/ユーザーIDは環境変数（`NEXT_PUBLIC_DEFAULT_HOUSEHOLD_ID` / `NEXT_PUBLIC_DEFAULT_USER_ID`）を暫定利用
+- Authセッション連携・細粒度のLedger単位権限制御は未実装
+- 監査ログは未実装
 
-## 今後の拡張余地
-- Supabase接続本実装（CRUD / キャッシュ / 楽観更新）
-- 銀行連携（明細取り込みとカテゴリ自動推定）
-- OCR連携（レシートから店舗名・金額・日付を抽出）
+## 今後の拡張候補
+- 監査ログ
+- JSON インポート / エクスポート
+- API / Edge Functions 経由への統一
+- Ledger 単位の細かい権限制御
 
 ## セットアップ
 ```bash
@@ -63,6 +60,21 @@ cp .env.example .env.local
 npm install
 npm run dev
 ```
+
+### 必須環境変数
+```bash
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+NEXT_PUBLIC_DEFAULT_HOUSEHOLD_ID=
+NEXT_PUBLIC_DEFAULT_USER_ID=
+# true の場合はプリセットのみモック実装
+NEXT_PUBLIC_USE_MOCK_PRESET=false
+```
+
+### 動作確認
+1. Supabase migration / policy を適用
+2. `/admin/presets` で作成・更新・複製・アーカイブ・状態変更・優先度変更を実行
+3. `/transactions/new` でカテゴリ・金額を入力し、`published` プリセットが適用されることを確認
 
 ### テスト
 ```bash

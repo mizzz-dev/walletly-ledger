@@ -1,62 +1,24 @@
-import { CategorySplitPreset } from "@/types/domain";
+import { CategorySplitPreset, PresetStatus } from "@/types/domain";
+import { createMockPresetRepository } from "@/lib/preset-repository/mock";
+import { createSupabasePresetRepository } from "@/lib/preset-repository/supabase";
 
 export interface PresetRepository {
-  listCategorySplitPresets(): Promise<CategorySplitPreset[]>;
+  listCategorySplitPresets(params?: { householdId?: string; ledgerId?: string | null; statuses?: PresetStatus[] }): Promise<CategorySplitPreset[]>;
+  getCategorySplitPresetById(id: string): Promise<CategorySplitPreset | null>;
+  createCategorySplitPreset(input: { householdId: string; ledgerId?: string | null; createdBy: string; preset: CategorySplitPreset; isDefault?: boolean }): Promise<CategorySplitPreset>;
+  updateCategorySplitPreset(input: { id: string; preset: CategorySplitPreset }): Promise<CategorySplitPreset>;
+  duplicateCategorySplitPreset(input: { id: string; createdBy: string }): Promise<CategorySplitPreset>;
+  archiveCategorySplitPreset(id: string): Promise<void>;
+  updateCategorySplitPresetStatus(input: { id: string; status: PresetStatus }): Promise<void>;
+  updateCategorySplitPresetPriority(input: { id: string; priority: number }): Promise<void>;
 }
 
-const mockPresets: CategorySplitPreset[] = [
-  {
-    id: "preset-grocery",
-    name: "食費ベーシック",
-    status: "published",
-    priority: 120,
-    targetCategoryIds: ["food", "daily"],
-    splitMethod: "equal",
-    roundingMode: "round",
-    conditions: { minAmount: 1000, keywords: ["スーパー", "まとめ買い"] },
-    members: [
-      { memberId: "m1" },
-      { memberId: "m2" },
-      { memberId: "m3" },
-    ],
-    updatedAt: "2026-04-01T10:00:00Z",
-  },
-  {
-    id: "preset-transport-weekday",
-    name: "平日交通",
-    status: "published",
-    priority: 95,
-    targetCategoryIds: ["transport"],
-    splitMethod: "ratio",
-    roundingMode: "floor",
-    conditions: { weekdays: [1, 2, 3, 4, 5], merchantName: "JR" },
-    members: [
-      { memberId: "m1", ratio: 0.5 },
-      { memberId: "m2", ratio: 0.3 },
-      { memberId: "m3", ratio: 0.2 },
-    ],
-    updatedAt: "2026-04-01T09:00:00Z",
-  },
-  {
-    id: "preset-travel",
-    name: "旅行混合",
-    status: "draft",
-    priority: 60,
-    targetCategoryIds: ["travel"],
-    splitMethod: "mixed_fixed",
-    roundingMode: "ceil",
-    conditions: { minAmount: 5000 },
-    members: [
-      { memberId: "m1", fixedAmount: 1500 },
-      { memberId: "m2" },
-      { memberId: "m3" },
-    ],
-    updatedAt: "2026-03-31T09:00:00Z",
-  },
-];
+export const createPresetRepository = (driver: "mock" | "supabase" = process.env.NEXT_PUBLIC_USE_MOCK_PRESET === "true" ? "mock" : "supabase"): PresetRepository => {
+  if (driver === "mock") {
+    return createMockPresetRepository();
+  }
 
-export const createMockPresetRepository = (): PresetRepository => ({
-  async listCategorySplitPresets() {
-    return mockPresets;
-  },
-});
+  return createSupabasePresetRepository();
+};
+
+export { createMockPresetRepository, createSupabasePresetRepository };
