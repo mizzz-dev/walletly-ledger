@@ -11,18 +11,50 @@
 
 ## 実装済み (MVP土台)
 - 共通レイアウト・レスポンシブナビ・Ledger切替UI
-- 支出追加画面（分割方式: 等分/比率/重み/固定額混合）
-- 分割プリセット管理画面 `/admin/presets`（一覧・検索・状態表示・操作UI）
+- 支出追加画面（カテゴリ別プリセット自動適用 + 手動調整 + プレビュー）
+- 分割プリセット管理画面 `/admin/presets`（一覧・検索・フィルタ・並び替え・新規/編集/複製/アーカイブ）
+- 分割方式フォーム（equal / ratio / weight / mixed_fixed の動的入力 + バリデーション）
 - 清算提案ロジック（greedy）と表示
 - 集計ダッシュボード（ダミーデータ + グラフ）
 - Supabase初期スキーマ + RLS方針ファイル
-- 単体テスト（分割ロジック / 清算ロジック / 失敗ケース）
+- 単体テスト（分割ロジック / 清算ロジック / プリセット選択 / プレビュー）
 
-## これから接続する部分
-- Supabase Authログイン・サインアップの実装
-- `/admin/presets` の Drawer/Sheet 編集UIとCRUD API接続
-- 実データ集計への差し替え
-- OCR・銀行連携・税務エクスポートの本実装
+## 分割プリセット管理画面
+- ページ: `/admin/presets`
+- DataTableライクUIで以下に対応
+  - 検索（名前・カテゴリ）
+  - 状態フィルタ（draft/published/archived）
+  - 並び替え（優先度/更新日/名前）
+  - 優先度の直接編集
+  - 新規作成・編集（Sheet風オーバーレイ）
+  - 複製・アーカイブ
+  - 条件指定（最低金額・キーワード・曜日・店舗名）
+  - 端数処理（四捨五入/切り上げ/切り捨て）
+  - 編集中プレビュー
+
+## 支出作成画面での自動適用フロー
+1. カテゴリ・金額・メモ・店舗名・日付を入力
+2. `published` のプリセットを優先度順で探索
+3. 最初に条件一致したプリセットを自動適用
+4. 金額変更時はリアルタイム再計算
+5. 適用中のプリセット名を表示
+6. プレビュー金額はメンバー単位で手動修正可能
+
+## Supabase 接続を見据えた整理（今回時点）
+- `category_split_presets` を想定した `CategorySplitPreset` 型を追加
+- `PresetRepository` インターフェースを追加し、モック実装を分離
+- 将来的に Server Component / Route Handler 経由で `/api/presets` に差し替えやすい構造
+
+## 現時点で未実装
+- プリセット・支出データの永続化（現在はモック）
+- `/api/presets` の Route Handler 実装
+- Supabase Auth連携とRLSの本番運用
+- 監査ログ・変更履歴
+
+## 今後の拡張余地
+- Supabase接続本実装（CRUD / キャッシュ / 楽観更新）
+- 銀行連携（明細取り込みとカテゴリ自動推定）
+- OCR連携（レシートから店舗名・金額・日付を抽出）
 
 ## セットアップ
 ```bash
@@ -39,7 +71,8 @@ npm run test
 
 ## 主要ディレクトリ
 - `app/` : App Routerページ
-- `src/lib/` : Supabase, 分割, 清算, 端数処理ロジック
+- `src/components/` : UIと画面コンポーネント
+- `src/lib/` : Supabase, 分割, 清算, プリセット選択/プレビュー
 - `supabase/migrations/` : DBスキーマ
 - `supabase/policies/` : RLSポリシー
 - `tests/` : Vitestユニットテスト
@@ -49,8 +82,3 @@ npm run test
 - `public/sw.js`
 - `public/icons/icon.svg` / `public/icons/icon-maskable.svg`
 - `src/components/layout/pwa-register.tsx`
-
-## 拡張設計メモ
-- 仕事用会計拡張に向けて `journals`, `journal_lines` を雛形作成
-- 銀行連携に向けて `bank_connections`, `bank_accounts`, `bank_transactions` を準備
-- OCR添付を見据えて `transactions.receipt_path` を保持

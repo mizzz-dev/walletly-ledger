@@ -1,6 +1,6 @@
 export type LedgerType = "family" | "work" | "custom";
 export type PresetStatus = "draft" | "published" | "archived";
-export type SplitMethod = "equal" | "ratio" | "weight" | "fixed_mixed";
+export type SplitMethod = "equal" | "ratio" | "weight" | "mixed_fixed" | "fixed_mixed";
 export type RoundingMode = "round" | "ceil" | "floor";
 
 export interface Household {
@@ -57,5 +57,33 @@ export interface PresetCondition {
   minAmount?: number;
   keywords?: string[];
   weekdays?: number[];
+  merchantName?: string;
+}
+
+export interface PresetMemberConfig {
+  memberId: string;
+  ratio?: number;
+  weight?: number;
+  fixedAmount?: number;
+}
+
+export interface CategorySplitPreset {
+  id: string;
+  name: string;
+  status: PresetStatus;
+  priority: number;
+  targetCategoryIds: string[];
+  splitMethod: SplitMethod;
+  roundingMode: RoundingMode;
+  conditions?: PresetCondition;
+  members: PresetMemberConfig[];
+  updatedAt: string;
+}
+
+export interface PresetMatchInput {
+  categoryId: string;
+  amount: number;
+  note?: string;
+  transactionDate: string;
   merchantName?: string;
 }
