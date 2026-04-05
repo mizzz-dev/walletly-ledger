@@ -10,7 +10,7 @@ export default async function NewTransactionPage({
   const params = await searchParams;
   const context = await resolveAppContext({ householdId: params.householdId, ledgerId: params.ledgerId });
 
-  if (!context.currentHouseholdId || !context.currentLedgerId) {
+  if (!context.currentHouseholdId || !context.currentLedgerId || !context.userId) {
     return <p className="text-sm text-foreground/70">利用可能な世帯または台帳がありません。管理者に確認してください。</p>;
   }
 
@@ -19,11 +19,17 @@ export default async function NewTransactionPage({
     ledgerId: context.currentLedgerId,
   }).catch(() => []);
 
+  const currentLedger = context.ledgers.find((ledger) => ledger.id === context.currentLedgerId);
+
   return (
     <NewTransactionClient
       presets={presets}
       categories={context.categories}
       members={context.members}
+      householdId={context.currentHouseholdId}
+      ledgerId={context.currentLedgerId}
+      userId={context.userId}
+      currency={currentLedger?.currency ?? "JPY"}
     />
   );
 }

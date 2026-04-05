@@ -1,24 +1,50 @@
 import { Card } from "@/components/ui/card";
-import { suggestSettlements } from "@/lib/settlement";
+import { resolveAppContext } from "@/lib/context/app-context";
+import { calculateSettlementData } from "@/lib/settlements/service";
+import { SettlementsClient } from "./settlements-client";
 
-const proposals = suggestSettlements([
-  { memberId: "あや", paid: 22000, burden: 13000 },
-  { memberId: "けん", paid: 6000, burden: 11000 },
-  { memberId: "ゆい", paid: 2000, burden: 6000 },
-]);
+export default async function SettlementsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ householdId?: string; ledgerId?: string }>;
+}) {
+  const params = await searchParams;
+  const context = await resolveAppContext({ householdId: params.householdId, ledgerId: params.ledgerId });
 
-export default function SettlementsPage() {
-  return (
-    <Card>
-      <h1 className="text-xl font-bold">清算提案</h1>
-      <ul className="mt-3 space-y-2 text-sm">
-        {proposals.map((proposal, idx) => (
-          <li key={`${proposal.fromMemberId}-${idx}`} className="rounded-xl bg-muted/50 px-3 py-2">
-            <span className="font-semibold">{proposal.fromMemberId}</span> が <span className="font-semibold">{proposal.toMemberId}</span> に
-            <span className="ml-1 font-bold tabular-nums">¥{proposal.amount.toLocaleString()}</span>
-          </li>
-        ))}
-      </ul>
-    </Card>
-  );
+  if (!context.currentHouseholdId || !context.currentLedgerId || !context.userId) {
+    return <p className="text-sm text-foreground/70">利用可能な世帯または台帳がありません。</p>;
+  }
+
+  try {
+    const result = await calculateSettlementData({
+      householdId: context.currentHouseholdId,
+      ledgerId: context.currentLedgerId,
+      memberIds: context.members.map((member) => member.membershipId),
+    });
+
+    const memberNameMap = Object.fromEntries(context.members.map((member) => [member.membershipId, member.name]));
+
+    return (
+      <SettlementsClient
+        summaries={result.summaries.map((summary) => ({
+          ...summary,
+          memberName: memberNameMap[summary.memberId] ?? summary.memberId,
+        }))}
+        proposals={result.proposals}
+        householdId={context.currentHouseholdId}
+        ledgerId={context.currentLedgerId}
+        createdBy={context.userId}
+        memberNameMap={memberNameMap}
+        validMemberIds={context.members.map((member) => member.membershipId)}
+      />
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "清算データの取得に失敗しました";
+    return (
+      <Card>
+        <h1 className="text-xl font-bold">清算提案</h1>
+        <p className="mt-3 text-sm text-rose-600">{message}</p>
+      </Card>
+    );
+  }
 }
