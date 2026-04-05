@@ -1,6 +1,6 @@
 import { PostgrestError } from "@supabase/supabase-js";
 import type { PresetRepository } from "@/lib/preset-repository";
-import { supabase } from "@/lib/supabase";
+import { createServerSupabaseClient, getAccessTokenFromCookies } from "@/lib/supabase/server";
 import { CategorySplitPreset, PresetStatus, PresetMemberConfig, SplitMethod, RoundingMode } from "@/types/domain";
 
 type PresetRow = {
@@ -86,6 +86,8 @@ const selectColumns = "id,household_id,ledger_id,name,category_ids,mode,ratio,we
 
 export const createSupabasePresetRepository = (): PresetRepository => ({
   async listCategorySplitPresets(params) {
+    const accessToken = await getAccessTokenFromCookies();
+  const supabase = createServerSupabaseClient(accessToken);
     let query = supabase.from("category_split_presets").select(selectColumns).order("priority", { ascending: false }).order("updated_at", { ascending: false });
 
     if (params?.householdId) query = query.eq("household_id", params.householdId);
@@ -99,6 +101,8 @@ export const createSupabasePresetRepository = (): PresetRepository => ({
   },
 
   async getCategorySplitPresetById(id) {
+    const accessToken = await getAccessTokenFromCookies();
+  const supabase = createServerSupabaseClient(accessToken);
     const { data, error } = await supabase.from("category_split_presets").select(selectColumns).eq("id", id).maybeSingle();
     if (error) fail(error, "プリセット詳細の取得に失敗しました");
     if (!data) return null;
@@ -106,6 +110,8 @@ export const createSupabasePresetRepository = (): PresetRepository => ({
   },
 
   async createCategorySplitPreset(input) {
+    const accessToken = await getAccessTokenFromCookies();
+  const supabase = createServerSupabaseClient(accessToken);
     const payload = toPresetInsertPayload(input);
     const { data, error } = await supabase.from("category_split_presets").insert(payload).select(selectColumns).single();
     if (error) fail(error, "プリセットの作成に失敗しました");
@@ -113,6 +119,8 @@ export const createSupabasePresetRepository = (): PresetRepository => ({
   },
 
   async updateCategorySplitPreset(input) {
+    const accessToken = await getAccessTokenFromCookies();
+  const supabase = createServerSupabaseClient(accessToken);
     const payload = toPresetInsertPayload({ householdId: "", createdBy: "", preset: input.preset });
     const { data, error } = await supabase
       .from("category_split_presets")
@@ -137,6 +145,8 @@ export const createSupabasePresetRepository = (): PresetRepository => ({
   },
 
   async duplicateCategorySplitPreset(input) {
+    const accessToken = await getAccessTokenFromCookies();
+  const supabase = createServerSupabaseClient(accessToken);
     const { data: sourceRow, error: sourceError } = await supabase
       .from("category_split_presets")
       .select(selectColumns)
@@ -169,16 +179,22 @@ export const createSupabasePresetRepository = (): PresetRepository => ({
   },
 
   async archiveCategorySplitPreset(id) {
+    const accessToken = await getAccessTokenFromCookies();
+  const supabase = createServerSupabaseClient(accessToken);
     const { error } = await supabase.from("category_split_presets").update({ status: "archived" }).eq("id", id);
     if (error) fail(error, "プリセットのアーカイブに失敗しました");
   },
 
   async updateCategorySplitPresetStatus(input) {
+    const accessToken = await getAccessTokenFromCookies();
+  const supabase = createServerSupabaseClient(accessToken);
     const { error } = await supabase.from("category_split_presets").update({ status: input.status }).eq("id", input.id);
     if (error) fail(error, "状態変更に失敗しました");
   },
 
   async updateCategorySplitPresetPriority(input) {
+    const accessToken = await getAccessTokenFromCookies();
+  const supabase = createServerSupabaseClient(accessToken);
     const { error } = await supabase.from("category_split_presets").update({ priority: input.priority }).eq("id", input.id);
     if (error) fail(error, "優先度の更新に失敗しました");
   },

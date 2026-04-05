@@ -1,24 +1,36 @@
 import { createPresetRepository } from "@/lib/preset-repository";
 import { CategorySplitPreset, PresetStatus } from "@/types/domain";
 
-const defaultHouseholdId = process.env.NEXT_PUBLIC_DEFAULT_HOUSEHOLD_ID ?? "00000000-0000-0000-0000-000000000001";
-const defaultUserId = process.env.NEXT_PUBLIC_DEFAULT_USER_ID ?? "00000000-0000-0000-0000-000000000001";
+interface PresetScope {
+  householdId: string;
+  ledgerId?: string | null;
+  userId?: string;
+}
 
-export const listAdminPresets = async () => {
+export const listAdminPresets = async (scope: PresetScope) => {
   const repository = createPresetRepository();
-  return repository.listCategorySplitPresets({ householdId: defaultHouseholdId });
+  return repository.listCategorySplitPresets({ householdId: scope.householdId, ledgerId: scope.ledgerId ?? null });
 };
 
-export const listPublishedPresets = async () => {
+export const listPublishedPresets = async (scope: PresetScope) => {
   const repository = createPresetRepository();
-  return repository.listCategorySplitPresets({ householdId: defaultHouseholdId, statuses: ["published"] });
+  return repository.listCategorySplitPresets({
+    householdId: scope.householdId,
+    ledgerId: scope.ledgerId ?? null,
+    statuses: ["published"],
+  });
 };
 
-export const createPreset = async (preset: CategorySplitPreset) => {
+export const createPreset = async (scope: PresetScope, preset: CategorySplitPreset) => {
+  if (!scope.userId) {
+    throw new Error("ユーザーIDが取得できないためプリセットを作成できません。");
+  }
+
   const repository = createPresetRepository();
   return repository.createCategorySplitPreset({
-    householdId: defaultHouseholdId,
-    createdBy: defaultUserId,
+    householdId: scope.householdId,
+    ledgerId: scope.ledgerId ?? null,
+    createdBy: scope.userId,
     preset,
   });
 };
@@ -28,9 +40,13 @@ export const updatePreset = async (id: string, preset: CategorySplitPreset) => {
   return repository.updateCategorySplitPreset({ id, preset });
 };
 
-export const duplicatePreset = async (id: string) => {
+export const duplicatePreset = async ({ userId }: { userId?: string }, id: string) => {
+  if (!userId) {
+    throw new Error("ユーザーIDが取得できないためプリセットを複製できません。");
+  }
+
   const repository = createPresetRepository();
-  return repository.duplicateCategorySplitPreset({ id, createdBy: defaultUserId });
+  return repository.duplicateCategorySplitPreset({ id, createdBy: userId });
 };
 
 export const archivePreset = async (id: string) => {

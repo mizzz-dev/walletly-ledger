@@ -7,23 +7,10 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { SimpleTable } from "@/components/ui/table";
 import { PresetEditor } from "@/components/presets/preset-editor";
-import { CategorySplitPreset, PresetStatus } from "@/types/domain";
+import { CategoryOption, CategorySplitPreset, MemberOption, PresetStatus } from "@/types/domain";
 import { archivePresetAction, duplicatePresetAction, savePresetAction, updatePresetPriorityAction, updatePresetStatusAction } from "./actions";
 
-const categories = [
-  { id: "food", name: "食費" },
-  { id: "daily", name: "日用品" },
-  { id: "transport", name: "交通費" },
-  { id: "travel", name: "旅行" },
-];
-
-const members = [
-  { memberId: "m1", name: "あや" },
-  { memberId: "m2", name: "けん" },
-  { memberId: "m3", name: "ゲスト" },
-];
-
-const createEmptyPreset = (): CategorySplitPreset => ({
+const createEmptyPreset = (members: MemberOption[]): CategorySplitPreset => ({
   id: crypto.randomUUID(),
   name: "新規プリセット",
   status: "draft",
@@ -32,11 +19,20 @@ const createEmptyPreset = (): CategorySplitPreset => ({
   splitMethod: "equal",
   roundingMode: "round",
   conditions: {},
-  members: members.map((member) => ({ memberId: member.memberId })),
+  members: members.map((member) => ({ memberId: member.membershipId })),
   updatedAt: new Date().toISOString(),
 });
 
-export const PresetsAdminClient = ({ initialPresets }: { initialPresets: CategorySplitPreset[] }) => {
+interface Props {
+  initialPresets: CategorySplitPreset[];
+  categories: CategoryOption[];
+  members: MemberOption[];
+  householdId: string;
+  ledgerId: string | null;
+  userId: string | null;
+}
+
+export const PresetsAdminClient = ({ initialPresets, categories, members, householdId, ledgerId, userId }: Props) => {
   const [presets, setPresets] = useState<CategorySplitPreset[]>(initialPresets);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | PresetStatus>("all");
@@ -49,7 +45,7 @@ export const PresetsAdminClient = ({ initialPresets }: { initialPresets: Categor
     const rows = presets.filter((preset) => {
       if (statusFilter !== "all" && preset.status !== statusFilter) return false;
       if (!query) return true;
-      const categoryNames = preset.targetCategoryIds.map((id) => categories.find((c) => c.id === id)?.name ?? "").join(" ");
+      const categoryNames = preset.targetCategoryIds.map((id) => categories.find((category) => category.id === id)?.name ?? "").join(" ");
       return `${preset.name} ${categoryNames}`.toLowerCase().includes(query.toLowerCase());
     });
 
@@ -58,7 +54,7 @@ export const PresetsAdminClient = ({ initialPresets }: { initialPresets: Categor
       if (sortBy === "updatedAt") return b.updatedAt.localeCompare(a.updatedAt);
       return b.priority - a.priority;
     });
-  }, [presets, query, statusFilter, sortBy]);
+  }, [presets, query, statusFilter, sortBy, categories]);
 
   const runAction = (action: () => Promise<void>, successMessage: string) => {
     setMessage(null);
@@ -74,7 +70,7 @@ export const PresetsAdminClient = ({ initialPresets }: { initialPresets: Categor
 
   const rows = filtered.map((preset) => [
     preset.name,
-    preset.targetCategoryIds.map((id) => categories.find((c) => c.id === id)?.name ?? id).join(", "),
+    preset.targetCategoryIds.map((id) => categories.find((category) => category.id === id)?.name ?? id).join(", "),
     preset.splitMethod,
     <Input
       key={`${preset.id}-priority`}
@@ -100,7 +96,7 @@ export const PresetsAdminClient = ({ initialPresets }: { initialPresets: Categor
     <div className="flex gap-2" key={preset.id}>
       <Button className="h-9" variant="outline" onClick={() => setEditing(preset)}>編集</Button>
       <Button className="h-9" variant="ghost" onClick={() => runAction(async () => {
-        const duplicated = await duplicatePresetAction(preset.id);
+        const duplicated = await duplicatePresetAction({ id: preset.id, userId });
         setPresets((prev) => [duplicated, ...prev]);
       }, "複製しました")}>複製</Button>
       <Button className="h-9" variant="ghost" onClick={() => runAction(async () => {
@@ -109,6 +105,10 @@ export const PresetsAdminClient = ({ initialPresets }: { initialPresets: Categor
       }, "アーカイブしました")}>アーカイブ</Button>
     </div>,
   ]);
+
+  if (categories.length === 0) {
+    return <p className="text-sm text-foreground/70">この台帳にはカテゴリが未登録です。先にカテゴリを作成してください。</p>;
+  }
 
   return (
     <section className="space-y-4">
@@ -125,15 +125,16 @@ export const PresetsAdminClient = ({ initialPresets }: { initialPresets: Categor
             <option value="published">published</option>
             <option value="archived">archived</option>
           </Select>
-          <Select value={sortBy} onChange={(e) => setSortBy(e.target.value as "priority" | "updatedAt" | "name")}>
+          <Select value={sortBy} onChange={(e) => setSortBy(e.target.value as "priority" | "updatedAt" | "name") }>
             <option value="priority">優先度順</option>
             <option value="updatedAt">更新日時順</option>
             <option value="name">名前順</option>
           </Select>
-          <Button onClick={() => setEditing(createEmptyPreset())}>新規作成</Button>
+          <Button onClick={() => setEditing(createEmptyPreset(members))}>新規作成</Button>
         </div>
         {message ? <p className="text-sm text-foreground/80">{message}</p> : null}
         {isPending ? <p className="text-xs text-foreground/70">保存処理中...</p> : null}
+        <p className="text-xs text-foreground/70">対象: household={householdId} / ledger={ledgerId ?? "未選択"}</p>
       </Card>
 
       <SimpleTable headers={["名前", "カテゴリ", "分割", "優先度", "状態", "操作"]} rows={rows} />
@@ -144,9 +145,14 @@ export const PresetsAdminClient = ({ initialPresets }: { initialPresets: Categor
           onClose={() => setEditing(null)}
           value={editing}
           categories={categories}
-          memberOptions={members}
+          memberOptions={members.map((member) => ({ memberId: member.membershipId, name: member.name }))}
           onSave={(saved) => runAction(async () => {
-            const next = await savePresetAction(saved);
+            const next = await savePresetAction({
+              householdId,
+              ledgerId,
+              userId,
+              preset: saved,
+            });
             setPresets((prev) => {
               const exists = prev.some((row) => row.id === next.id);
               if (exists) return prev.map((row) => (row.id === next.id ? next : row));
