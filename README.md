@@ -10,53 +10,55 @@
 - Vitest
 
 ## 実装済み (MVP土台)
-- 共通レイアウト・レスポンシブナビ・Ledger切替UI
+- 共通レイアウト・レスポンシブナビ
 - 支出追加画面（カテゴリ別プリセット自動適用 + 手動調整 + プレビュー）
-- 分割プリセット管理画面 `/admin/presets`（一覧・検索・フィルタ・並び替え・新規/編集/複製/アーカイブ）
+- 分割プリセット管理画面 `/admin/presets`
 - 分割方式フォーム（equal / ratio / weight / mixed_fixed の動的入力 + バリデーション）
 - 清算提案ロジック（greedy）と表示
 - 集計ダッシュボード（ダミーデータ + グラフ）
 - Supabase初期スキーマ + RLS方針ファイル
 - 単体テスト（分割ロジック / 清算ロジック / プリセット選択 / プレビュー / Repository整形）
 
-## 分割プリセットのSupabase永続化（今回）
-- `category_split_presets` を Supabase に永続化し、管理画面と支出作成画面を実データ接続
-- 管理画面 `/admin/presets`
-  - 一覧表示（Supabase）
-  - 新規作成 / 更新 / 複製 / アーカイブ
-  - 状態変更（draft/published/archived）
-  - 優先度更新
-- 支出作成画面 `/transactions/new`
-  - Supabase から `published` のみ取得
-  - 優先度順で最初に一致したプリセットを自動適用
-
-## RLS / ロール制御（最小実装）
-- household メンバーのみプリセット参照可能
-- owner / editor / member が更新可能（viewerは閲覧のみ想定）
-- archived / draft は自動適用対象外（UI一覧には表示可）
+## 今回の変更（Auth・世帯/台帳連携の土台）
+- Supabase Auth セッション（cookie）から現在ユーザーを解決するサーバー向け処理を追加
+- 現在ユーザーの所属 `households` / `memberships` / `ledgers` を取得し、ヘッダーの世帯/台帳セレクターに接続
+- `/transactions/new` のカテゴリ候補・メンバー候補を固定配列から Supabase 実データへ置き換え
+- `/admin/presets` のカテゴリ候補・メンバー候補を Supabase 実データへ置き換え
+- プリセット一覧取得を、現在選択中の `householdId` / `ledgerId` に連動
 
 ## データアクセス構成
-- `src/lib/preset-repository.ts` : Repository interface + driver切替
-- `src/lib/preset-repository/supabase.ts` : Supabase 実装
-- `src/lib/preset-repository/mock.ts` : モック実装（`NEXT_PUBLIC_USE_MOCK_PRESET=true` で利用）
-- `src/lib/preset-service.ts` : 画面から呼ぶユースケース層
-- `app/admin/presets/actions.ts` : 管理画面更新系の Server Action
+- `src/lib/auth/*` : 現在ユーザー解決
+- `src/lib/context/*` : 世帯/台帳選択の解決
+- `src/lib/households/*` : 世帯取得
+- `src/lib/ledgers/*` : 台帳取得
+- `src/lib/categories/*` : カテゴリ取得・整形
+- `src/lib/memberships/*` : メンバー取得・整形
+- `src/lib/preset-service.ts` : 画面から呼ぶプリセット用途層
+
+## Auth セッション前提とフォールバック
+- 原則は Supabase Auth のセッション cookie から `auth.getUser` でユーザーを解決します
+- 開発時のみ `NEXT_PUBLIC_DEFAULT_USER_ID` をフォールバックとして使用できます
+- `NEXT_PUBLIC_DEFAULT_HOUSEHOLD_ID` は今回の実装で不要になりました
+
+## Household / Ledger 選択の使い方
+- ヘッダーのセレクターから世帯と台帳を選択します
+- 選択値は URL クエリ (`householdId`, `ledgerId`) として各画面に反映されます
+- `/admin/presets` と `/transactions/new` は同じ選択状態に追従します
 
 ## 現時点の制約
-- 世帯ID/ユーザーIDは環境変数（`NEXT_PUBLIC_DEFAULT_HOUSEHOLD_ID` / `NEXT_PUBLIC_DEFAULT_USER_ID`）を暫定利用
-- Authセッション連携・細粒度のLedger単位権限制御は未実装
-- 監査ログは未実装
+- ログイン画面本体は未実装（セッション前提の接続のみ実装）
+- ヘッダー表示時の選択候補は、現在ユーザー所属データが前提
+- 取引保存本体（transactions insert）のRLS/権限フローは次PRで強化予定
 
-## 今後の拡張候補
-- 監査ログ
-- JSON インポート / エクスポート
-- API / Edge Functions 経由への統一
-- Ledger 単位の細かい権限制御
+## 次PR候補
+- 本格的なログイン/ログアウト導線
+- 世帯/台帳選択の永続化（cookie）
+- transaction 作成系の Server Action と RLS 強化
+- profiles/users の表示名統合
 
 ## セットアップ
 ```bash
 cp .env.example .env.local
-# 値を設定後
 npm install
 npm run dev
 ```
@@ -65,7 +67,7 @@ npm run dev
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
-NEXT_PUBLIC_DEFAULT_HOUSEHOLD_ID=
+# セッションがない開発環境向け任意
 NEXT_PUBLIC_DEFAULT_USER_ID=
 # true の場合はプリセットのみモック実装
 NEXT_PUBLIC_USE_MOCK_PRESET=false
@@ -73,8 +75,9 @@ NEXT_PUBLIC_USE_MOCK_PRESET=false
 
 ### 動作確認
 1. Supabase migration / policy を適用
-2. `/admin/presets` で作成・更新・複製・アーカイブ・状態変更・優先度変更を実行
-3. `/transactions/new` でカテゴリ・金額を入力し、`published` プリセットが適用されることを確認
+2. Auth でログイン済みセッションを用意（または `NEXT_PUBLIC_DEFAULT_USER_ID` を設定）
+3. `/admin/presets` でカテゴリ・メンバー候補が実データ表示されることを確認
+4. `/transactions/new` でカテゴリ・支払者・分割プレビューが実データで動作することを確認
 
 ### テスト
 ```bash
@@ -84,13 +87,7 @@ npm run test
 ## 主要ディレクトリ
 - `app/` : App Routerページ
 - `src/components/` : UIと画面コンポーネント
-- `src/lib/` : Supabase, 分割, 清算, プリセット選択/プレビュー
+- `src/lib/` : Supabase, Auth, households/ledgers/categories/memberships, 分割, 清算, プリセット
 - `supabase/migrations/` : DBスキーマ
 - `supabase/policies/` : RLSポリシー
 - `tests/` : Vitestユニットテスト
-
-## PWA
-- `public/manifest.webmanifest`
-- `public/sw.js`
-- `public/icons/icon.svg` / `public/icons/icon-maskable.svg`
-- `src/components/layout/pwa-register.tsx`

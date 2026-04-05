@@ -24,6 +24,40 @@ export interface Category {
   color: string;
 }
 
+export interface Membership {
+  id: string;
+  householdId: string;
+  userId: string;
+  role: string;
+}
+
+export interface HouseholdOption {
+  id: string;
+  name: string;
+}
+
+export interface LedgerOption {
+  id: string;
+  householdId: string;
+  name: string;
+  type: LedgerType;
+  currency: string;
+}
+
+export interface CategoryOption {
+  id: string;
+  name: string;
+  color: string;
+  ledgerId: string;
+}
+
+export interface MemberOption {
+  membershipId: string;
+  userId: string;
+  role: string;
+  name: string;
+}
+
 export interface Transaction {
   id: string;
   ledgerId: string;

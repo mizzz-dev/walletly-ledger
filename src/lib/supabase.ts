@@ -1,11 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
+import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 
-const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-if (!url || !anonKey) {
-  console.warn("Supabaseの環境変数が未設定です。.env.example を確認してください。");
-}
-
-export const createSupabaseClient = () => createClient(url ?? "", anonKey ?? "");
+export const createSupabaseClient = createBrowserSupabaseClient;
 export const supabase = createSupabaseClient();
