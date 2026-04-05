@@ -10,6 +10,7 @@ import { HouseholdOption, LedgerOption } from "@/types/domain";
 const menus = [
   { href: "/", label: "ホーム" },
   { href: "/transactions/new", label: "支出追加" },
+  { href: "/transactions", label: "取引一覧" },
   { href: "/dashboard", label: "集計" },
   { href: "/settlements", label: "清算" },
   { href: "/admin/presets", label: "プリセット管理" },

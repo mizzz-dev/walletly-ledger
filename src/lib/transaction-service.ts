@@ -1,0 +1,37 @@
+import { createTransactionWithSplits, listTransactionsByLedger } from "@/lib/repositories/transaction-repository";
+import { CreateTransactionInput, toSplitInsertPayloads, toTransactionInsertPayload } from "@/lib/transactions/payload";
+import { TransactionListItem } from "@/types/domain";
+
+export const createExpenseTransaction = async (input: CreateTransactionInput) => {
+  const transaction = toTransactionInsertPayload(input);
+  const splitPayloads = toSplitInsertPayloads({
+    householdId: input.householdId,
+    ledgerId: input.ledgerId,
+    transactionId: "",
+    splitResults: input.splitResults,
+  });
+
+  return createTransactionWithSplits({ transaction, splits: splitPayloads });
+};
+
+export const listTransactionItems = async ({
+  householdId,
+  ledgerId,
+}: {
+  householdId: string;
+  ledgerId: string;
+}): Promise<TransactionListItem[]> => {
+  const rows = await listTransactionsByLedger({ householdId, ledgerId });
+  return rows.map((row) => {
+    const payerUsers = Array.isArray(row.payer?.users) ? row.payer?.users[0] : row.payer?.users;
+    return {
+      id: row.id,
+      date: row.transaction_date,
+      categoryName: row.categories?.name ?? "未分類",
+      amount: row.amount,
+      payerName: payerUsers?.display_name ?? "不明",
+      note: row.note ?? "",
+      presetName: row.preset?.name ?? null,
+    };
+  });
+};

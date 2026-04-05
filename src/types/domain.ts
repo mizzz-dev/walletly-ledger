@@ -87,6 +87,34 @@ export interface SettlementEdge {
   amount: number;
 }
 
+export interface TransactionListItem {
+  id: string;
+  date: string;
+  categoryName: string;
+  amount: number;
+  payerName: string;
+  note: string;
+  presetName: string | null;
+}
+
+export interface MemberSettlementSummary {
+  memberId: string;
+  paid: number;
+  owed: number;
+  net: number;
+}
+
+export interface SettlementRecordInput {
+  householdId: string;
+  ledgerId: string;
+  fromMemberId: string;
+  toMemberId: string;
+  amount: number;
+  method: string;
+  note?: string;
+  settledOn: string;
+}
+
 export interface PresetCondition {
   minAmount?: number;
   keywords?: string[];

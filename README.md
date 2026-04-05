@@ -9,52 +9,50 @@
 - PWA (manifest + service worker + SVGアイコン雛形)
 - Vitest
 
-## 実装済み (MVP土台)
-- 共通レイアウト・レスポンシブナビ
-- 支出追加画面（カテゴリ別プリセット自動適用 + 手動調整 + プレビュー）
-- 分割プリセット管理画面 `/admin/presets`
-- 分割方式フォーム（equal / ratio / weight / mixed_fixed の動的入力 + バリデーション）
-- 清算提案ロジック（greedy）と表示
-- 集計ダッシュボード（ダミーデータ + グラフ）
-- Supabase初期スキーマ + RLS方針ファイル
-- 単体テスト（分割ロジック / 清算ロジック / プリセット選択 / プレビュー / Repository整形）
-
-## 今回の変更（Auth・世帯/台帳連携の土台）
-- Supabase Auth セッション（cookie）から現在ユーザーを解決するサーバー向け処理を追加
-- 現在ユーザーの所属 `households` / `memberships` / `ledgers` を取得し、ヘッダーの世帯/台帳セレクターに接続
-- `/transactions/new` のカテゴリ候補・メンバー候補を固定配列から Supabase 実データへ置き換え
-- `/admin/presets` のカテゴリ候補・メンバー候補を Supabase 実データへ置き換え
-- プリセット一覧取得を、現在選択中の `householdId` / `ledgerId` に連動
+## 実装済み (今回のPR時点)
+- 世帯 / 台帳の解決（Supabase Authセッション起点）
+- カテゴリ・メンバー候補の実データ化
+- `/transactions/new` から支出 + 分担（splits）の保存
+- `/transactions` で取引一覧表示（日付 / カテゴリ / 金額 / 支払者 / メモ / 適用プリセット）
+- `/settlements` で未精算サマリ・精算提案を実データで算出
+- `/settlements` で精算記録の保存（現金 / 振込 / PayPay / その他）
+- 分割ロジック / 清算ロジック / payload整形 / 集計ロジックの単体テスト
 
 ## データアクセス構成
-- `src/lib/auth/*` : 現在ユーザー解決
-- `src/lib/context/*` : 世帯/台帳選択の解決
-- `src/lib/households/*` : 世帯取得
-- `src/lib/ledgers/*` : 台帳取得
-- `src/lib/categories/*` : カテゴリ取得・整形
-- `src/lib/memberships/*` : メンバー取得・整形
-- `src/lib/preset-service.ts` : 画面から呼ぶプリセット用途層
+- `src/lib/repositories/*` : Supabaseとの入出力
+- `src/lib/transactions/*` : 取引保存payload整形・検証
+- `src/lib/transaction-service.ts` : 支出保存と取引一覧用途
+- `src/lib/settlements/*` : 清算集計・提案生成
+- `src/lib/settlements/service.ts` : 清算画面向けサービス
 
-## Auth セッション前提とフォールバック
-- 原則は Supabase Auth のセッション cookie から `auth.getUser` でユーザーを解決します
-- 開発時のみ `NEXT_PUBLIC_DEFAULT_USER_ID` をフォールバックとして使用できます
-- `NEXT_PUBLIC_DEFAULT_HOUSEHOLD_ID` は今回の実装で不要になりました
+## 画面ごとの使い方
+### 支出登録 `/transactions/new`
+1. 金額・カテゴリ・支払者・日付を入力
+2. 必要に応じて分担プレビューを手動調整
+3. 「支出を保存」で `transactions` と `splits` を連続保存
 
-## Household / Ledger 選択の使い方
-- ヘッダーのセレクターから世帯と台帳を選択します
-- 選択値は URL クエリ (`householdId`, `ledgerId`) として各画面に反映されます
-- `/admin/presets` と `/transactions/new` は同じ選択状態に追従します
+### 取引一覧 `/transactions`
+- 現在選択中の世帯 / 台帳に紐づく取引を新しい順で表示
+- 適用プリセットがある場合は名称を表示
 
-## 現時点の制約
-- ログイン画面本体は未実装（セッション前提の接続のみ実装）
-- ヘッダー表示時の選択候補は、現在ユーザー所属データが前提
-- 取引保存本体（transactions insert）のRLS/権限フローは次PRで強化予定
+### 精算 `/settlements`
+- 取引 + 分担から各メンバーの `paid / owed / net` を計算
+- 既存 `settlements` 記録を相殺して未精算残高を再計算
+- 提案行ごとに精算記録を保存すると、即時再計算される
 
-## 次PR候補
-- 本格的なログイン/ログアウト導線
-- 世帯/台帳選択の永続化（cookie）
-- transaction 作成系の Server Action と RLS 強化
-- profiles/users の表示名統合
+## Supabaseスキーマ / RLS
+- migration:
+  - `202604040001_init.sql`
+  - `202604040002_category_split_presets_persistence.sql`
+  - `202604050001_transactions_settlements_core.sql`（今回追加）
+- policy:
+  - `supabase/policies/rls.sql`
+
+RLS方針（今回）:
+- householdメンバー: `transactions / splits / settlements` 参照可
+- owner/editor: 作成可
+- viewer（owner/editor以外）: 閲覧のみ
+- `created_by` / `payer_membership_id` / 精算対象membershipの整合を policy 側でチェック
 
 ## セットアップ
 ```bash
@@ -73,13 +71,28 @@ NEXT_PUBLIC_DEFAULT_USER_ID=
 NEXT_PUBLIC_USE_MOCK_PRESET=false
 ```
 
-### 動作確認
+## 動作確認手順
 1. Supabase migration / policy を適用
-2. Auth でログイン済みセッションを用意（または `NEXT_PUBLIC_DEFAULT_USER_ID` を設定）
-3. `/admin/presets` でカテゴリ・メンバー候補が実データ表示されることを確認
-4. `/transactions/new` でカテゴリ・支払者・分割プレビューが実データで動作することを確認
+2. Authでログイン済みセッション（または `NEXT_PUBLIC_DEFAULT_USER_ID`）を用意
+3. `/transactions/new` で支出登録し、保存成功メッセージを確認
+4. `/transactions` で登録済み取引が表示されることを確認
+5. `/settlements` で提案生成を確認し、提案行を1件記録
+6. `/settlements` が再計算され、未精算額が減ることを確認
 
-### テスト
+## 現時点の制約
+- 取引一覧の詳細フィルタ（カテゴリ/支払者/期間）は未実装
+- 取引更新・削除、精算記録の取消は未実装
+- `transactions` + `splits` はアプリ側で連続保存（DBトランザクション関数化は未実装）
+- OCR / 銀行明細連携 / 仕訳出力は未着手
+
+## 次PR候補
+- 取引一覧フィルタ・ページング
+- 取引編集/削除と監査ログ
+- 精算記録の取消・差額入力フロー
+- DB function化による厳密な原子保存
+- ダッシュボード集計の実データ化
+
+## テスト
 ```bash
 npm run test
 ```
@@ -87,7 +100,7 @@ npm run test
 ## 主要ディレクトリ
 - `app/` : App Routerページ
 - `src/components/` : UIと画面コンポーネント
-- `src/lib/` : Supabase, Auth, households/ledgers/categories/memberships, 分割, 清算, プリセット
+- `src/lib/` : Supabase, Auth, context, repositories, transaction/settlement service
 - `supabase/migrations/` : DBスキーマ
 - `supabase/policies/` : RLSポリシー
 - `tests/` : Vitestユニットテスト
