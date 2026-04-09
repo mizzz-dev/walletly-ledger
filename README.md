@@ -28,6 +28,7 @@
 - 取引入力を共通化した `TransactionDraft` モデル（manual / ocr / bank）
 - 銀行明細レビュー機能（`/banking/review`）: draft自動生成、カテゴリ候補、プリセット適用、重複候補警告、確認後登録
 - 銀行連携基盤（mock provider）: 接続作成、口座同期、明細保存、重複排除、候補化、レビュー連携
+- work台帳向け会計モード基盤（`/accounting/journals`）: 勘定科目マスタ、税区分、仕訳下書き生成、仕訳保存
 - 分割ロジック / 清算ロジック / payload整形 / 集計ロジック / 銀行候補生成の単体テスト
 
 ## データアクセス構成
@@ -50,6 +51,8 @@
 - `src/lib/banking/category-matcher.ts` : ルール/履歴/名称によるカテゴリ推定
 - `src/lib/banking/transaction-match.ts` : 既存取引との exact/probable/none 判定
 - `src/lib/banking/matcher.ts` : カテゴリ推定 + プリセット適用 + split preview + 重複候補統合
+- `src/lib/accounting/*` : 仕訳下書き生成・勘定科目/税区分マッピング・貸借一致判定
+- `src/lib/accounting/repositories/accounting-repository.ts` : 仕訳 / 仕訳明細 / 勘定科目のSupabaseアクセス
 
 ## 画面ごとの使い方
 ### 支出登録 `/transactions/new`
@@ -81,6 +84,23 @@
 
 > 注意: 現時点では `mock` provider のみ実装しています。`minna_bank` / `aggregator` は interface と差し替え点のみ用意し、実API接続は次段で実装予定です。
 > 注意: 現在のレビュー対象は `outflow`（支出）明細が中心です。`inflow` は警告付きで表示し、自動登録は抑制します。
+
+### 会計モード（work台帳）`/accounting/journals`
+- `work` 台帳選択時のみヘッダーに「会計」メニューを表示
+- `/accounting/journals` で仕訳一覧（下書き/確定、借方合計/貸方合計、元データ参照）を表示
+- `/accounting/journals/new` で取引を選ぶと、以下をもとに仕訳下書きを生成
+  - 借方: カテゴリ名ベースの費用科目候補（例: 旅費交通費 / 通信費）
+  - 貸方: 入力元ベースの支払元候補（銀行由来は普通預金、それ以外は現金）
+  - 税区分: 最低限コード（対象外・非課税・課税10/8・仕入10/8）
+- 下書きはユーザーが勘定科目・税区分を確認/修正して保存（完全自動仕訳ではない）
+- `family/custom` 台帳では既存の家計簿フローを優先し、会計画面は利用不可ガードを表示
+
+会計モードの今回の到達点:
+- 勘定科目マスタ（ledgerスコープ、work台帳初期科目seed）
+- 仕訳 / 仕訳明細テーブル整備（source追跡、status、貸借方向dc）
+- transaction 由来の仕訳下書き変換ロジック
+- bank / ocr draftから将来仕訳化するための共通変換関数の土台
+- RLSで household/ledger/work スコープを維持
 
 ### 取引一覧 `/transactions`
 - 現在選択中の世帯 / 台帳に紐づく取引を新しい順で表示
@@ -127,6 +147,7 @@
 - `202604090003_receipt_ocr_foundation.sql`（今回追加）
 - `202604090004_banking_foundation.sql`（今回追加）
 - `202604090005_transaction_draft_source_and_review.sql`（今回追加）
+- `202604090006_work_accounting_foundation.sql`（今回追加）
 - policy:
   - `supabase/policies/rls.sql`
 
@@ -143,6 +164,8 @@ RLS方針（今回）:
 - `transactions.imported_bank_transaction_id` と `bank_transactions.imported_transaction_id` で取込済み状態を追跡
 - `transactions.source_type` / `transactions.source_reference_id` で manual・ocr・bank の入力元を追跡
 - RLSで銀行データも householdメンバー参照可、owner/editor のみ作成・同期・更新可
+- 会計テーブル（`account_masters / journals / journal_lines`）は householdメンバー参照可、owner/editor のみ作成・更新可
+- `journals / journal_lines` は `work` 台帳に限定してアクセス可能（policyで制御）
 
 ## セットアップ
 ```bash
@@ -170,6 +193,8 @@ NEXT_PUBLIC_USE_MOCK_PRESET=false
 5. `/settlements` で提案生成を確認し、提案行を1件記録
 6. `/settlements` が再計算され、未精算額が減ることを確認
 7. `/dashboard` を開き、同じ世帯 / 台帳の支出が集計表示されることを確認
+8. `work` 台帳を選択し `/accounting/journals/new` で取引起点の仕訳下書きを生成
+9. 勘定科目・税区分を確認して保存し、`/accounting/journals` 一覧に反映されることを確認
 
 ## 現時点の制約
 - 取引一覧の詳細フィルタ（カテゴリ/支払者/期間）は未実装
@@ -178,6 +203,10 @@ NEXT_PUBLIC_USE_MOCK_PRESET=false
 - OCR providerはモック実装（`MockOcrProvider`）で、実画像認識の精度保証は未対応
 - 行明細抽出・税額抽出・インボイス番号抽出は未実装（rawText保持まで）
 - 銀行連携は「自動候補生成 + ユーザー確認」まで実装（完全自動承認は未対応）
+- 会計モードは `work` 台帳のみ対応（`family/custom` の会計入力UIは未提供）
+- 仕訳作成は現時点で「取引起点の2行仕訳（借方/貸方）」を基本とし、複合仕訳UIは未実装
+- 消費税の厳密計算・税額自動算出・申告帳票出力は未実装（税区分コード保持まで）
+- freee/マネーフォワード/弥生向け完全互換CSV・API連携は未実装
 - カテゴリ推定はルールベースで、ユーザー修正の学習反映は未実装
 - 入金（inflow）はレビュー表示のみで、支出登録の自動対象外
 - 銀行連携providerはmock実装。実運用APIトークン暗号化・KMS連携は未実装
@@ -205,6 +234,10 @@ NEXT_PUBLIC_USE_MOCK_PRESET=false
 - 重複判定のスコアリング改善と自動承認（安全閾値付き）
 - 入出金を活用した自動split提案
 - 明細から会計仕訳（journals / journal_lines）候補生成
+- 元帳 / 試算表ビュー
+- 仕訳CSVエクスポート
+- 消費税集計と税務エクスポート強化
+- transaction変更時の仕訳再生成・差分管理
 - みんなの銀行本接続 / アグリゲータ接続（Moneytree等）
 - 収入/支出を統合したキャッシュフロー分析
 - 会計向け科目別サマリと仕訳候補生成

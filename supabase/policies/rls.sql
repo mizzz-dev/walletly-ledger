@@ -13,6 +13,9 @@ alter table public.bank_connections enable row level security;
 alter table public.bank_accounts enable row level security;
 alter table public.bank_transactions enable row level security;
 alter table public.imported_transaction_candidates enable row level security;
+alter table public.account_masters enable row level security;
+alter table public.journals enable row level security;
+alter table public.journal_lines enable row level security;
 
 create or replace function public.is_household_member(target_household_id uuid)
 returns boolean
@@ -48,6 +51,18 @@ as $$
     select 1 from public.memberships m
     where m.household_id = target_household_id
       and m.id = target_membership_id
+  );
+$$;
+
+create or replace function public.is_work_ledger(target_ledger_id uuid)
+returns boolean
+language sql
+stable
+as $$
+  select exists (
+    select 1 from public.ledgers l
+    where l.id = target_ledger_id
+      and l.type = 'work'
   );
 $$;
 
@@ -269,3 +284,60 @@ drop policy if exists "取込候補作成更新はowner/editorのみ" on public.
 create policy "取込候補作成更新はowner/editorのみ" on public.imported_transaction_candidates
 for all using (public.can_edit_household(household_id))
 with check (public.can_edit_household(household_id));
+
+drop policy if exists "勘定科目は世帯メンバーのみ参照可能" on public.account_masters;
+create policy "勘定科目は世帯メンバーのみ参照可能" on public.account_masters
+for select using (public.is_household_member(household_id));
+
+drop policy if exists "勘定科目の作成更新はowner/editorのみ" on public.account_masters;
+create policy "勘定科目の作成更新はowner/editorのみ" on public.account_masters
+for all using (public.can_edit_household(household_id))
+with check (public.can_edit_household(household_id));
+
+drop policy if exists "仕訳は世帯メンバーのみ参照可能" on public.journals;
+create policy "仕訳は世帯メンバーのみ参照可能" on public.journals
+for select using (
+  public.is_household_member(household_id)
+  and public.is_work_ledger(ledger_id)
+);
+
+drop policy if exists "仕訳の作成更新はowner/editorのみ" on public.journals;
+create policy "仕訳の作成更新はowner/editorのみ" on public.journals
+for all using (
+  public.can_edit_household(household_id)
+  and public.is_work_ledger(ledger_id)
+)
+with check (
+  public.can_edit_household(household_id)
+  and public.is_work_ledger(ledger_id)
+);
+
+drop policy if exists "仕訳明細は世帯メンバーのみ参照可能" on public.journal_lines;
+create policy "仕訳明細は世帯メンバーのみ参照可能" on public.journal_lines
+for select using (
+  exists (
+    select 1 from public.journals j
+    where j.id = journal_lines.journal_id
+      and public.is_household_member(j.household_id)
+      and public.is_work_ledger(j.ledger_id)
+  )
+);
+
+drop policy if exists "仕訳明細の作成更新はowner/editorのみ" on public.journal_lines;
+create policy "仕訳明細の作成更新はowner/editorのみ" on public.journal_lines
+for all using (
+  exists (
+    select 1 from public.journals j
+    where j.id = journal_lines.journal_id
+      and public.can_edit_household(j.household_id)
+      and public.is_work_ledger(j.ledger_id)
+  )
+)
+with check (
+  exists (
+    select 1 from public.journals j
+    where j.id = journal_lines.journal_id
+      and public.can_edit_household(j.household_id)
+      and public.is_work_ledger(j.ledger_id)
+  )
+);

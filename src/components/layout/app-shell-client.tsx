@@ -8,7 +8,7 @@ import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { HouseholdOption, LedgerOption } from "@/types/domain";
 
-const menus = [
+const baseMenus = [
   { href: "/", label: "ホーム" },
   { href: "/transactions/new", label: "支出追加" },
   { href: "/transactions", label: "取引一覧" },
@@ -35,6 +35,8 @@ export const AppShellClient = ({ households, ledgers, fallbackActiveUser, unread
   const selectedHouseholdId = searchParams.get("householdId") ?? households[0]?.id;
   const visibleLedgers = ledgers.filter((ledger) => ledger.householdId === selectedHouseholdId);
   const selectedLedgerId = searchParams.get("ledgerId") ?? visibleLedgers[0]?.id;
+  const selectedLedger = visibleLedgers.find((ledger) => ledger.id === selectedLedgerId);
+  const menus = selectedLedger?.type === "work" ? [...baseMenus, { href: "/accounting/journals", label: "会計" }] : baseMenus;
 
   const updateSearchParams = (nextHouseholdId?: string, nextLedgerId?: string) => {
     const params = new URLSearchParams(searchParams.toString());

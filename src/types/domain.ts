@@ -82,6 +82,79 @@ export interface ReceiptOcrResult {
 
 export type TransactionSourceType = "manual" | "ocr" | "bank";
 
+export type AccountingSourceType = "manual" | "transaction" | "bank" | "ocr";
+export type JournalStatus = "draft" | "posted";
+export type DebitCredit = "debit" | "credit";
+export type AccountCategory = "asset" | "liability" | "equity" | "revenue" | "expense";
+
+export interface AccountMaster {
+  id: string;
+  householdId: string;
+  ledgerId: string | null;
+  code: string;
+  name: string;
+  category: AccountCategory;
+  isActive: boolean;
+  sortOrder: number;
+}
+
+export interface TaxCode {
+  code: string;
+  label: string;
+  rate: number;
+  isInput: boolean;
+}
+
+export interface JournalLineDraft {
+  lineNo: number;
+  accountId: string | null;
+  accountCode: string | null;
+  dc: DebitCredit;
+  amount: number;
+  taxCode: string | null;
+  memo: string | null;
+}
+
+export interface JournalDraft {
+  householdId: string;
+  ledgerId: string;
+  sourceType: AccountingSourceType;
+  sourceReferenceId: string | null;
+  journalDate: string;
+  description: string;
+  status: JournalStatus;
+  lines: JournalLineDraft[];
+  warnings: string[];
+}
+
+export interface JournalLine {
+  id: string;
+  journalId: string;
+  lineNo: number;
+  accountId: string;
+  accountCode: string;
+  accountName: string;
+  dc: DebitCredit;
+  amount: number;
+  taxCode: string | null;
+  memo: string | null;
+}
+
+export interface Journal {
+  id: string;
+  householdId: string;
+  ledgerId: string;
+  sourceType: AccountingSourceType | null;
+  sourceReferenceId: string | null;
+  journalDate: string;
+  description: string;
+  status: JournalStatus;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  lines: JournalLine[];
+}
+
 export interface TransactionDraft {
   sourceType: TransactionSourceType;
   householdId: string;
