@@ -148,6 +148,22 @@ export interface BudgetProgressSummary {
   items: BudgetProgressItem[];
 }
 
+export type NotificationType = "budget_exceeded" | "settlement_pending";
+export type NotificationChannel = "push" | "email";
+
+export interface NotificationItem {
+  id: string;
+  userId: string;
+  householdId: string;
+  type: NotificationType;
+  title: string;
+  body: string;
+  isRead: boolean;
+  createdAt: string;
+  channel: NotificationChannel | null;
+  pushSentAt: string | null;
+}
+
 export interface SplitInputMember {
   memberId: string;
   ratio?: number;

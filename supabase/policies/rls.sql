@@ -8,6 +8,7 @@ alter table public.splits enable row level security;
 alter table public.settlements enable row level security;
 alter table public.budgets enable row level security;
 alter table public.category_split_presets enable row level security;
+alter table public.notifications enable row level security;
 
 create or replace function public.is_household_member(target_household_id uuid)
 returns boolean
@@ -142,4 +143,29 @@ for insert with check (
   and created_by = auth.uid()
   and public.is_valid_household_membership(household_id, from_membership_id)
   and public.is_valid_household_membership(household_id, to_membership_id)
+);
+
+drop policy if exists "通知は本人のみ参照可能" on public.notifications;
+create policy "通知は本人のみ参照可能" on public.notifications
+for select using (
+  user_id = auth.uid()
+  and public.is_household_member(household_id)
+);
+
+drop policy if exists "通知作成はowner/editorのみ" on public.notifications;
+create policy "通知作成はowner/editorのみ" on public.notifications
+for insert with check (
+  public.can_edit_household(household_id)
+  and public.is_household_member(household_id)
+);
+
+drop policy if exists "通知既読更新は本人のみ" on public.notifications;
+create policy "通知既読更新は本人のみ" on public.notifications
+for update using (
+  user_id = auth.uid()
+  and public.is_household_member(household_id)
+)
+with check (
+  user_id = auth.uid()
+  and public.is_household_member(household_id)
 );

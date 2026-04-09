@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createExpenseTransaction } from "@/lib/transaction-service";
+import { generateBudgetNotificationsOnTransactionSaved } from "@/lib/notifications/service";
 
 export interface SaveTransactionState {
   ok: boolean;
@@ -51,9 +52,15 @@ export const saveTransactionAction = async (
       splitResults,
       validMemberIds,
     });
+    await generateBudgetNotificationsOnTransactionSaved({
+      householdId,
+      ledgerId,
+      transactionDate,
+    });
 
     revalidatePath("/transactions");
     revalidatePath("/settlements");
+    revalidatePath("/notifications");
 
     return { ok: true, message: "支出を保存しました" };
   } catch (error) {

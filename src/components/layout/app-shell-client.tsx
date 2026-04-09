@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
@@ -14,6 +15,7 @@ const menus = [
   { href: "/dashboard", label: "集計" },
   { href: "/budgets", label: "予算" },
   { href: "/settlements", label: "清算" },
+  { href: "/notifications", label: "通知" },
   { href: "/admin/presets", label: "プリセット管理" },
 ];
 
@@ -21,9 +23,10 @@ interface Props {
   households: HouseholdOption[];
   ledgers: LedgerOption[];
   fallbackActiveUser: boolean;
+  unreadNotificationCount: number;
 }
 
-export const AppShellClient = ({ households, ledgers, fallbackActiveUser }: Props) => {
+export const AppShellClient = ({ households, ledgers, fallbackActiveUser, unreadNotificationCount }: Props) => {
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -72,6 +75,14 @@ export const AppShellClient = ({ households, ledgers, fallbackActiveUser }: Prop
               <Link key={menu.href} href={menu.href} className={cn("rounded-xl px-3 py-2 text-sm", pathname === menu.href && "bg-muted font-semibold")}>{menu.label}</Link>
             ))}
           </nav>
+          <Link href="/notifications" className="relative rounded-xl border border-border p-2 hover:bg-muted" aria-label="通知一覧">
+            <Bell size={18} />
+            {unreadNotificationCount > 0 ? (
+              <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-rose-500 px-1 text-center text-[10px] font-semibold leading-5 text-white">
+                {unreadNotificationCount > 99 ? "99+" : unreadNotificationCount}
+              </span>
+            ) : null}
+          </Link>
           <Button variant="outline">認証連携準備中</Button>
         </div>
       </div>
