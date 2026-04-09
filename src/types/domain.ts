@@ -69,6 +69,46 @@ export interface Transaction {
   receiptPath?: string;
 }
 
+export interface DashboardTransactionRecord {
+  id: string;
+  date: string;
+  amount: number;
+  categoryId: string | null;
+  categoryName: string | null;
+  categoryColor: string | null;
+}
+
+export interface DashboardSummary {
+  yearMonth: string;
+  totalSpent: number;
+  transactionCount: number;
+  previousMonthTotalSpent: number;
+  diffFromPreviousMonth: number;
+}
+
+export interface CategorySummary {
+  categoryId: string;
+  categoryName: string;
+  categoryColor: string;
+  totalSpent: number;
+  percentage: number;
+}
+
+export interface TimeSeriesPoint {
+  date: string;
+  label: string;
+  totalSpent: number;
+}
+
+export interface DashboardAggregationResult {
+  summary: DashboardSummary;
+  categories: CategorySummary[];
+  timeSeries: TimeSeriesPoint[];
+}
+
+export type DashboardCategorySummary = CategorySummary;
+export type DashboardTimeSeriesPoint = TimeSeriesPoint;
+
 export interface SplitInputMember {
   memberId: string;
   ratio?: number;
