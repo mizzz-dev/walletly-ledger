@@ -80,6 +80,25 @@ export interface ReceiptOcrResult {
   dateCandidates: string[];
 }
 
+export type TransactionSourceType = "manual" | "ocr" | "bank";
+
+export interface TransactionDraft {
+  sourceType: TransactionSourceType;
+  householdId: string;
+  ledgerId: string;
+  amount: number | null;
+  date: string | null;
+  merchant: string | null;
+  note: string | null;
+  suggestedCategoryId: string | null;
+  suggestedPresetId: string | null;
+  suggestedMemberIds: string[] | null;
+  bankTransactionId: string | null;
+  receiptAttachmentId: string | null;
+  confidence: number | null;
+  warnings: string[];
+}
+
 export interface ReceiptDraft {
   amount: number | null;
   transactionDate: string | null;
@@ -118,6 +137,8 @@ export interface Transaction {
   note?: string;
   date: string;
   receiptPath?: string;
+  sourceType?: TransactionSourceType;
+  sourceReferenceId?: string | null;
 }
 
 export interface DashboardTransactionRecord {
@@ -368,4 +389,41 @@ export interface BankTransactionDraft {
   noteCandidate: string;
   categorySuggestion: string | null;
   importedBankTransactionId: string;
+}
+
+export interface CategorySuggestion {
+  categoryId: string | null;
+  confidence: number | null;
+  reason: "rule" | "history" | "name" | "none";
+}
+
+export type TransactionMatchLevel = "exact" | "probable" | "none";
+
+export interface TransactionMatchCandidate {
+  transactionId: string;
+  amount: number;
+  date: string;
+  merchant: string | null;
+  note: string | null;
+  importedBankTransactionId: string | null;
+  receiptAttachmentId: string | null;
+  sourceType: TransactionSourceType | null;
+}
+
+export interface TransactionMatchResult {
+  level: TransactionMatchLevel;
+  transactionId: string | null;
+  reason: string | null;
+}
+
+export interface BankingReviewItem {
+  bankTransactionId: string;
+  accountDisplayName: string;
+  direction: BankTransactionDirection;
+  matchStatus: BankTransactionMatchStatus;
+  draft: TransactionDraft;
+  categorySuggestion: CategorySuggestion;
+  presetId: string | null;
+  splitPreview: SplitResult[];
+  matchResult: TransactionMatchResult;
 }

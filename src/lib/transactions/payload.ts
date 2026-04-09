@@ -1,4 +1,4 @@
-import { SplitResult } from "@/types/domain";
+import { SplitResult, TransactionSourceType } from "@/types/domain";
 
 export interface CreateTransactionInput {
   householdId: string;
@@ -16,6 +16,8 @@ export interface CreateTransactionInput {
   validMemberIds: string[];
   receiptAttachmentId?: string | null;
   importedBankTransactionId?: string | null;
+  sourceType?: TransactionSourceType;
+  sourceReferenceId?: string | null;
 }
 
 export interface TransactionInsertPayload {
@@ -31,6 +33,8 @@ export interface TransactionInsertPayload {
   applied_preset_id: string | null;
   created_by: string;
   imported_bank_transaction_id: string | null;
+  source_type: TransactionSourceType;
+  source_reference_id: string | null;
 }
 
 export interface SplitInsertPayload {
@@ -101,6 +105,8 @@ export const toTransactionInsertPayload = (input: CreateTransactionInput): Trans
     applied_preset_id: input.appliedPresetId ?? null,
     created_by: input.createdBy,
     imported_bank_transaction_id: input.importedBankTransactionId ?? null,
+    source_type: input.sourceType ?? "manual",
+    source_reference_id: input.sourceReferenceId ?? null,
   };
 };
 

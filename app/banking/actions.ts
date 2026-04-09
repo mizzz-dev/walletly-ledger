@@ -14,6 +14,7 @@ export const createBankConnectionAction = async (formData: FormData): Promise<vo
 
   revalidatePath("/banking");
   revalidatePath("/banking/transactions");
+  revalidatePath("/banking/review");
 };
 
 export const syncBankConnectionAction = async (formData: FormData): Promise<void> => {
@@ -25,4 +26,5 @@ export const syncBankConnectionAction = async (formData: FormData): Promise<void
 
   revalidatePath("/banking");
   revalidatePath("/banking/transactions");
+  revalidatePath("/banking/review");
 };

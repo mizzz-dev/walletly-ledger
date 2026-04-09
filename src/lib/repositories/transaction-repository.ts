@@ -69,3 +69,61 @@ export const listTransactionsByLedger = async ({
 
   return (data ?? []) as TransactionListRow[];
 };
+
+
+export interface TransactionMatchRow {
+  id: string;
+  transaction_date: string;
+  amount: number;
+  note: string | null;
+  merchant: string | null;
+  category_id: string | null;
+  imported_bank_transaction_id: string | null;
+  source_type: "manual" | "ocr" | "bank" | null;
+  source_reference_id: string | null;
+}
+
+export const listMatchingTransactionCandidates = async ({
+  householdId,
+  ledgerId,
+}: {
+  householdId: string;
+  ledgerId: string;
+}): Promise<Array<{
+  transactionId: string;
+  date: string;
+  amount: number;
+  note: string | null;
+  merchant: string | null;
+  categoryId: string | null;
+  importedBankTransactionId: string | null;
+  receiptAttachmentId: string | null;
+  sourceType: "manual" | "ocr" | "bank" | null;
+}>> => {
+  const accessToken = await getAccessTokenFromCookies();
+  const supabase = createServerSupabaseClient(accessToken);
+
+  const { data, error } = await supabase
+    .from("transactions")
+    .select("id,transaction_date,amount,note,merchant,category_id,imported_bank_transaction_id,source_type,source_reference_id")
+    .eq("household_id", householdId)
+    .eq("ledger_id", ledgerId)
+    .order("transaction_date", { ascending: false })
+    .limit(200);
+
+  if (error) {
+    throw new Error(`取引候補の取得に失敗しました: ${error.message}`);
+  }
+
+  return ((data ?? []) as TransactionMatchRow[]).map((row) => ({
+    transactionId: row.id,
+    date: row.transaction_date,
+    amount: row.amount,
+    note: row.note,
+    merchant: row.merchant,
+    categoryId: row.category_id,
+    importedBankTransactionId: row.imported_bank_transaction_id,
+    receiptAttachmentId: row.source_type === "ocr" ? row.source_reference_id : null,
+    sourceType: row.source_type,
+  }));
+};

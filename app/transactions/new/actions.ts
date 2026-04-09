@@ -56,6 +56,9 @@ export const saveTransactionAction = async (
     const splitResults = JSON.parse(splitPayload) as Array<{ memberId: string; amount: number }>;
     const validMemberIds = JSON.parse(validMemberIdsPayload) as string[];
 
+    const sourceType = importedBankTransactionId ? "bank" : receiptAttachmentId ? "ocr" : "manual";
+    const sourceReferenceId = importedBankTransactionId ?? receiptAttachmentId ?? null;
+
     await createExpenseTransaction({
       householdId,
       ledgerId,
@@ -72,6 +75,8 @@ export const saveTransactionAction = async (
       validMemberIds,
       receiptAttachmentId,
       importedBankTransactionId,
+      sourceType,
+      sourceReferenceId,
     });
     await generateBudgetNotificationsOnTransactionSaved({
       householdId,
