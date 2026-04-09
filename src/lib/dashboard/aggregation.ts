@@ -137,5 +137,14 @@ export const aggregateDashboardData = ({
     summary,
     categories,
     timeSeries,
+    budgetProgress: {
+      period: targetYearMonth,
+      totalBudget: 0,
+      totalSpent: 0,
+      totalRemaining: 0,
+      totalProgressRate: 0,
+      hasOverBudget: false,
+      items: [],
+    },
   };
 };

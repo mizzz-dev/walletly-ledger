@@ -12,6 +12,7 @@ const menus = [
   { href: "/transactions/new", label: "支出追加" },
   { href: "/transactions", label: "取引一覧" },
   { href: "/dashboard", label: "集計" },
+  { href: "/budgets", label: "予算" },
   { href: "/settlements", label: "清算" },
   { href: "/admin/presets", label: "プリセット管理" },
 ];
