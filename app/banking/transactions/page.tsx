@@ -46,7 +46,10 @@ export default async function BankingTransactionsPage({
       <Card className="space-y-3">
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-bold">銀行明細一覧</h1>
-          <Link href={`/banking?${scopeQuery}`} className="text-sm text-primary underline underline-offset-2">銀行接続へ戻る</Link>
+          <div className="flex gap-3 text-sm">
+            <Link href={`/banking?${scopeQuery}`} className="text-primary underline underline-offset-2">銀行接続へ戻る</Link>
+            <Link href={`/banking/review?${scopeQuery}`} className="text-primary underline underline-offset-2">レビュー画面へ</Link>
+          </div>
         </div>
         <div className="flex flex-wrap gap-2 text-sm">
           <Link href={`/banking/transactions?${scopeQuery}`} className="rounded-lg border border-border px-3 py-1">全口座</Link>

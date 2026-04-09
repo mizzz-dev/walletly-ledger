@@ -25,8 +25,10 @@
 - PWA Service Worker の Push受信ハンドラ（通知表示 / 通知クリック遷移）
 - レシート / 領収書画像のアップロード + Supabase Storage保存基盤（receipt_attachments）
 - OCR（モックprovider）による支出下書き生成と `/transactions/new` への自動入力
-- 銀行連携基盤（mock provider）: 接続作成、口座同期、明細保存、重複排除、候補化、`/transactions/new` 連携
-- 分割ロジック / 清算ロジック / payload整形 / 集計ロジックの単体テスト
+- 取引入力を共通化した `TransactionDraft` モデル（manual / ocr / bank）
+- 銀行明細レビュー機能（`/banking/review`）: draft自動生成、カテゴリ候補、プリセット適用、重複候補警告、確認後登録
+- 銀行連携基盤（mock provider）: 接続作成、口座同期、明細保存、重複排除、候補化、レビュー連携
+- 分割ロジック / 清算ロジック / payload整形 / 集計ロジック / 銀行候補生成の単体テスト
 
 ## データアクセス構成
 - `src/lib/repositories/*` : Supabaseとの入出力
@@ -44,6 +46,10 @@
 - `src/lib/repositories/notification-repository.ts` : 通知テーブルのSupabaseアクセス
 - `src/lib/repositories/receipt-repository.ts` : レシート添付テーブル + Storageアクセス
 - `src/lib/ocr/*` : OCR provider抽象化 / 正規化 / draft変換
+- `src/lib/banking/draft.ts` : 銀行明細→TransactionDraft 変換とmerchant正規化
+- `src/lib/banking/category-matcher.ts` : ルール/履歴/名称によるカテゴリ推定
+- `src/lib/banking/transaction-match.ts` : 既存取引との exact/probable/none 判定
+- `src/lib/banking/matcher.ts` : カテゴリ推定 + プリセット適用 + split preview + 重複候補統合
 
 ## 画面ごとの使い方
 ### 支出登録 `/transactions/new`
@@ -61,14 +67,20 @@
 > 注意: OCRは現時点でモック実装です。認識精度ではなく、呼び出し口・型・UI連携の基盤を優先しています。
 
 
-### 銀行連携 `/banking` / `/banking/transactions`
+### 銀行連携 `/banking` / `/banking/transactions` / `/banking/review`
 1. `/banking` でモック provider の接続を作成
 2. 接続カードの「手動同期」で口座・明細を取り込み
-3. `/banking/transactions` で明細候補を確認（口座フィルタ / 未取込フィルタ）
-4. 「支出として取り込む」で `/transactions/new` に金額・日付・店舗・メモを下書き反映
-5. 保存後、対象明細は取込済みとして表示
+3. `/banking/review` で銀行明細を `TransactionDraft` へ自動変換
+4. draft生成時に以下を自動実行
+   - merchant正規化（counterparty優先、descriptionフォールバック）
+   - カテゴリ候補推定（ルール > 過去類似取引 > カテゴリ名一致）
+   - 推定カテゴリに対する published プリセット探索と split preview
+   - 既存取引との重複判定（exact / probable / none）
+5. ユーザーが金額・日付・店舗名・カテゴリを確認/修正し「新規取引として登録」
+6. 保存後、対象明細は取込済みとして追跡
 
 > 注意: 現時点では `mock` provider のみ実装しています。`minna_bank` / `aggregator` は interface と差し替え点のみ用意し、実API接続は次段で実装予定です。
+> 注意: 現在のレビュー対象は `outflow`（支出）明細が中心です。`inflow` は警告付きで表示し、自動登録は抑制します。
 
 ### 取引一覧 `/transactions`
 - 現在選択中の世帯 / 台帳に紐づく取引を新しい順で表示
@@ -114,6 +126,7 @@
 - `202604090002_notifications_foundation.sql`（今回追加）
 - `202604090003_receipt_ocr_foundation.sql`（今回追加）
 - `202604090004_banking_foundation.sql`（今回追加）
+- `202604090005_transaction_draft_source_and_review.sql`（今回追加）
 - policy:
   - `supabase/policies/rls.sql`
 
@@ -128,6 +141,7 @@ RLS方針（今回）:
 - `bank_connections / bank_accounts / bank_transactions / imported_transaction_candidates` を追加し、household/ledgerスコープで管理
 - 重複防止は `provider_transaction_id` 優先 + `transaction_hash` フォールバックでユニーク制約
 - `transactions.imported_bank_transaction_id` と `bank_transactions.imported_transaction_id` で取込済み状態を追跡
+- `transactions.source_type` / `transactions.source_reference_id` で manual・ocr・bank の入力元を追跡
 - RLSで銀行データも householdメンバー参照可、owner/editor のみ作成・同期・更新可
 
 ## セットアップ
@@ -163,7 +177,10 @@ NEXT_PUBLIC_USE_MOCK_PRESET=false
 - `transactions` + `splits` はアプリ側で連続保存（DBトランザクション関数化は未実装）
 - OCR providerはモック実装（`MockOcrProvider`）で、実画像認識の精度保証は未対応
 - 行明細抽出・税額抽出・インボイス番号抽出は未実装（rawText保持まで）
-- 銀行連携は基盤実装まで（mock providerで接続/同期/候補化）。本番APIトークン暗号化・KMS連携は未実装
+- 銀行連携は「自動候補生成 + ユーザー確認」まで実装（完全自動承認は未対応）
+- カテゴリ推定はルールベースで、ユーザー修正の学習反映は未実装
+- 入金（inflow）はレビュー表示のみで、支出登録の自動対象外
+- 銀行連携providerはmock実装。実運用APIトークン暗号化・KMS連携は未実装
 - 予算期間は現時点で月次（`YYYY-MM`）固定
 - 通知生成トリガーは現時点で画面操作起点（支出保存時 / 精算画面表示時）
 - Pushは受信ハンドラのみ実装（配信は未実装）
@@ -184,9 +201,11 @@ NEXT_PUBLIC_USE_MOCK_PRESET=false
 - 領収書台帳画面（検索・再OCR・添付再紐づけ）
 - みんなの銀行API連携（OAuth / credential保護 / Edge Functions経由）
 - アグリゲータ接続（Moneytree等）のprovider追加
-- 銀行明細の自動カテゴリ推定とプリセット自動適用
+- 分類結果のユーザー修正ログを活用した学習型カテゴリ推定
+- 重複判定のスコアリング改善と自動承認（安全閾値付き）
 - 入出金を活用した自動split提案
 - 明細から会計仕訳（journals / journal_lines）候補生成
+- みんなの銀行本接続 / アグリゲータ接続（Moneytree等）
 - 収入/支出を統合したキャッシュフロー分析
 - 会計向け科目別サマリと仕訳候補生成
 

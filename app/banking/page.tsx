@@ -39,9 +39,14 @@ export default async function BankingPage({
             <h1 className="text-xl font-bold">銀行連携</h1>
             <p className="text-sm text-foreground/70">今回は provider 抽象化の基盤実装です。接続作成はモックです。</p>
           </div>
-          <Link href={`/banking/transactions?${scopeQuery}`} className="text-sm text-primary underline underline-offset-2">
-            明細一覧へ
-          </Link>
+          <div className="flex gap-3 text-sm">
+            <Link href={`/banking/transactions?${scopeQuery}`} className="text-primary underline underline-offset-2">
+              明細一覧へ
+            </Link>
+            <Link href={`/banking/review?${scopeQuery}`} className="text-primary underline underline-offset-2">
+              レビューへ
+            </Link>
+          </div>
         </div>
         <form action={createBankConnectionAction} className="flex flex-wrap items-end gap-3 rounded-xl border border-border p-3">
           <input type="hidden" name="householdId" value={context.currentHouseholdId} />
