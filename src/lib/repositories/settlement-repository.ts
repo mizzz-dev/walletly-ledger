@@ -16,6 +16,7 @@ export interface SettlementRow {
   from_membership_id: string;
   to_membership_id: string;
   amount: number;
+  created_at?: string;
 }
 
 export interface TransactionSplitAggregateRow {
@@ -30,7 +31,7 @@ export const listSettlementBaseRows = async ({
 }: {
   householdId: string;
   ledgerId: string;
-}): Promise<{ transactions: TransactionSplitAggregateRow[]; settlements: SettlementRow[] }> => {
+}): Promise<{ transactions: TransactionSplitAggregateRow[]; settlements: SettlementRow[]; lastSettlementAt: string | null }> => {
   const accessToken = await getAccessTokenFromCookies();
   const supabase = createServerSupabaseClient(accessToken);
 
@@ -42,9 +43,10 @@ export const listSettlementBaseRows = async ({
       .eq("ledger_id", ledgerId),
     supabase
       .from("settlements")
-      .select("from_membership_id,to_membership_id,amount")
+      .select("from_membership_id,to_membership_id,amount,created_at")
       .eq("household_id", householdId)
-      .eq("ledger_id", ledgerId),
+      .eq("ledger_id", ledgerId)
+      .order("created_at", { ascending: false }),
   ]);
 
   if (txError) {
@@ -58,6 +60,7 @@ export const listSettlementBaseRows = async ({
   return {
     transactions: (txRows ?? []) as TransactionSplitAggregateRow[],
     settlements: (settlementRows ?? []) as SettlementRow[],
+    lastSettlementAt: ((settlementRows ?? []) as SettlementRow[])[0]?.created_at ?? null,
   };
 };
 

@@ -19,6 +19,10 @@
 - `/dashboard` で月次サマリ・カテゴリ別支出割合・日別支出推移を実データ表示
 - `/budgets` でカテゴリ別 / 全体の月次予算を作成・編集・削除
 - `/dashboard` で予算 vs 実績、カテゴリ別進捗バー、超過可視化を表示
+- `/notifications` で予算超過通知・精算リマインド通知を一覧表示し既読化
+- 支出保存時の予算しきい値判定（80%到達 / 100%超過）による通知生成
+- `/settlements` 表示時の未精算状態チェックによるリマインド通知生成
+- PWA Service Worker の Push受信ハンドラ（通知表示 / 通知クリック遷移）
 - 分割ロジック / 清算ロジック / payload整形 / 集計ロジックの単体テスト
 
 ## データアクセス構成
@@ -33,6 +37,8 @@
 - `src/lib/budgets/repository.ts` : 予算CRUDのSupabaseアクセス
 - `src/lib/budgets/aggregation.ts` : 予算進捗（予算/実績/残額/進捗率）集計
 - `src/lib/budgets/service.ts` : 予算画面・ダッシュボード連携向けサービス
+- `src/lib/notifications/*` : 通知判定ロジック（予算・精算）
+- `src/lib/repositories/notification-repository.ts` : 通知テーブルのSupabaseアクセス
 
 ## 画面ごとの使い方
 ### 支出登録 `/transactions/new`
@@ -70,12 +76,18 @@
   - 進捗%
 - owner/editor は作成・編集・削除可能、viewer は閲覧のみ
 
+### 通知 `/notifications`
+- 現在選択中の世帯に紐づく通知（予算超過 / 精算リマインド）を表示
+- 未読・既読ステータスを表示し、未読は一覧から既読化可能
+- ヘッダーのベルアイコンで未読件数を確認可能
+
 ## Supabaseスキーマ / RLS
 - migration:
   - `202604040001_init.sql`
   - `202604040002_category_split_presets_persistence.sql`
 - `202604050001_transactions_settlements_core.sql`（今回追加）
 - `202604090001_budgets_monthly_management.sql`（今回追加）
+- `202604090002_notifications_foundation.sql`（今回追加）
 - policy:
   - `supabase/policies/rls.sql`
 
@@ -85,6 +97,7 @@ RLS方針（今回）:
 - viewer（owner/editor以外）: 閲覧のみ
 - `created_by` / `payer_membership_id` / 精算対象membershipの整合を policy 側でチェック
 - `budgets` は householdメンバー参照可、owner/editorのみ作成・更新・削除可
+- `notifications` は本人のみ参照・既読化可能、owner/editorが生成可能
 
 ## セットアップ
 ```bash
@@ -118,7 +131,8 @@ NEXT_PUBLIC_USE_MOCK_PRESET=false
 - `transactions` + `splits` はアプリ側で連続保存（DBトランザクション関数化は未実装）
 - OCR / 銀行明細連携 / 仕訳出力は未着手
 - 予算期間は現時点で月次（`YYYY-MM`）固定
-- 通知（例: 80%到達 / 超過時）は未実装
+- 通知生成トリガーは現時点で画面操作起点（支出保存時 / 精算画面表示時）
+- Pushは受信ハンドラのみ実装（配信は未実装）
 - 収入カテゴリ・期間フィルタ切替（週/月/年）は未実装
 
 ## 次PR候補
@@ -127,6 +141,9 @@ NEXT_PUBLIC_USE_MOCK_PRESET=false
 - 精算記録の取消・差額入力フロー
 - DB function化による厳密な原子保存
 - 予算進捗の通知（80%到達 / 超過）をSupabase Edge Functionsで配信
+- cron / Edge Functions による定期通知生成の自動化
+- Push送信API（Web Push）と push_sent_at 更新
+- 通知チャネル拡張（メール / LINE）と配信設定管理
 - 予算テンプレート（カテゴリ一括初期化）と繰り越し設定
 - 収入/支出を統合したキャッシュフロー分析
 - 会計向け科目別サマリと仕訳候補生成

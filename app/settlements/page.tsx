@@ -1,5 +1,6 @@
 import { Card } from "@/components/ui/card";
 import { resolveAppContext } from "@/lib/context/app-context";
+import { generateSettlementReminderNotifications } from "@/lib/notifications/service";
 import { calculateSettlementData } from "@/lib/settlements/service";
 import { SettlementsClient } from "./settlements-client";
 
@@ -16,6 +17,12 @@ export default async function SettlementsPage({
   }
 
   try {
+    await generateSettlementReminderNotifications({
+      householdId: context.currentHouseholdId,
+      ledgerId: context.currentLedgerId,
+      memberIds: context.members.map((member) => member.membershipId),
+    });
+
     const result = await calculateSettlementData({
       householdId: context.currentHouseholdId,
       ledgerId: context.currentLedgerId,
