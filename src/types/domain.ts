@@ -104,10 +104,49 @@ export interface DashboardAggregationResult {
   summary: DashboardSummary;
   categories: CategorySummary[];
   timeSeries: TimeSeriesPoint[];
+  budgetProgress: BudgetProgressSummary;
 }
 
 export type DashboardCategorySummary = CategorySummary;
 export type DashboardTimeSeriesPoint = TimeSeriesPoint;
+
+export interface Budget {
+  id: string;
+  householdId: string;
+  ledgerId: string;
+  categoryId: string | null;
+  period: string;
+  amount: number;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BudgetWithCategory extends Budget {
+  categoryName: string | null;
+}
+
+export interface BudgetProgressItem {
+  budgetId: string;
+  categoryId: string | null;
+  categoryName: string;
+  period: string;
+  budgetAmount: number;
+  spentAmount: number;
+  remainingAmount: number;
+  progressRate: number;
+  isOverBudget: boolean;
+}
+
+export interface BudgetProgressSummary {
+  period: string;
+  totalBudget: number;
+  totalSpent: number;
+  totalRemaining: number;
+  totalProgressRate: number;
+  hasOverBudget: boolean;
+  items: BudgetProgressItem[];
+}
 
 export interface SplitInputMember {
   memberId: string;

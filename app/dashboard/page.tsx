@@ -1,4 +1,5 @@
 import { CategorySpendingChart } from "@/components/dashboard/category-spending-chart";
+import { BudgetProgressPanel } from "@/components/dashboard/budget-progress-panel";
 import { SpendingTrendChart } from "@/components/dashboard/spending-trend-chart";
 import { SummaryCards } from "@/components/dashboard/summary-cards";
 import { Card } from "@/components/ui/card";
@@ -30,6 +31,14 @@ export default async function DashboardPage({
           <h1 className="text-2xl font-bold">ダッシュボード</h1>
           <p className="text-sm text-foreground/70">{dashboard.summary.yearMonth} の支出状況を表示しています。</p>
           <SummaryCards summary={dashboard.summary} />
+        </Card>
+
+        <Card>
+          <h2 className="font-semibold">予算 vs 実績</h2>
+          <p className="mt-1 text-sm text-foreground/70">カテゴリ別に当月予算の進捗を表示します。超過時は赤色で表示されます。</p>
+          <div className="mt-3">
+            <BudgetProgressPanel budgetProgress={dashboard.budgetProgress} />
+          </div>
         </Card>
 
         {dashboard.summary.transactionCount === 0 ? (

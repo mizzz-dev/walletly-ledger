@@ -17,6 +17,8 @@
 - `/settlements` で未精算サマリ・精算提案を実データで算出
 - `/settlements` で精算記録の保存（現金 / 振込 / PayPay / その他）
 - `/dashboard` で月次サマリ・カテゴリ別支出割合・日別支出推移を実データ表示
+- `/budgets` でカテゴリ別 / 全体の月次予算を作成・編集・削除
+- `/dashboard` で予算 vs 実績、カテゴリ別進捗バー、超過可視化を表示
 - 分割ロジック / 清算ロジック / payload整形 / 集計ロジックの単体テスト
 
 ## データアクセス構成
@@ -28,6 +30,9 @@
 - `src/lib/dashboard/repository.ts` : ダッシュボード向け取引取得
 - `src/lib/dashboard/aggregation.ts` : ダッシュボード集計の純粋関数
 - `src/lib/dashboard/service.ts` : ダッシュボード画面向けサービス
+- `src/lib/budgets/repository.ts` : 予算CRUDのSupabaseアクセス
+- `src/lib/budgets/aggregation.ts` : 予算進捗（予算/実績/残額/進捗率）集計
+- `src/lib/budgets/service.ts` : 予算画面・ダッシュボード連携向けサービス
 
 ## 画面ごとの使い方
 ### 支出登録 `/transactions/new`
@@ -53,12 +58,24 @@
   - カテゴリ別支出割合（円グラフ）
   - 日別の支出推移（棒グラフ）
 - 今月データがない場合はデータなし状態を表示
+- 予算が設定されている場合は `予算 vs 実績` として進捗を表示し、超過カテゴリは赤色で表示
+
+### 予算管理 `/budgets`
+- 現在選択中の世帯 / 台帳に対して月次予算を管理
+- カテゴリ単位予算、またはカテゴリなしの全体予算を設定可能
+- 表示項目:
+  - 予算
+  - 使用額
+  - 残額
+  - 進捗%
+- owner/editor は作成・編集・削除可能、viewer は閲覧のみ
 
 ## Supabaseスキーマ / RLS
 - migration:
   - `202604040001_init.sql`
   - `202604040002_category_split_presets_persistence.sql`
-  - `202604050001_transactions_settlements_core.sql`（今回追加）
+- `202604050001_transactions_settlements_core.sql`（今回追加）
+- `202604090001_budgets_monthly_management.sql`（今回追加）
 - policy:
   - `supabase/policies/rls.sql`
 
@@ -67,6 +84,7 @@ RLS方針（今回）:
 - owner/editor: 作成可
 - viewer（owner/editor以外）: 閲覧のみ
 - `created_by` / `payer_membership_id` / 精算対象membershipの整合を policy 側でチェック
+- `budgets` は householdメンバー参照可、owner/editorのみ作成・更新・削除可
 
 ## セットアップ
 ```bash
@@ -99,14 +117,17 @@ NEXT_PUBLIC_USE_MOCK_PRESET=false
 - 取引更新・削除、精算記録の取消は未実装
 - `transactions` + `splits` はアプリ側で連続保存（DBトランザクション関数化は未実装）
 - OCR / 銀行明細連携 / 仕訳出力は未着手
-- 予算実績比較・収入カテゴリ・期間フィルタ切替（週/月/年）は未実装
+- 予算期間は現時点で月次（`YYYY-MM`）固定
+- 通知（例: 80%到達 / 超過時）は未実装
+- 収入カテゴリ・期間フィルタ切替（週/月/年）は未実装
 
 ## 次PR候補
 - 取引一覧フィルタ・ページング
 - 取引編集/削除と監査ログ
 - 精算記録の取消・差額入力フロー
 - DB function化による厳密な原子保存
-- 予算設定との比較表示（予算消化率・超過アラート）
+- 予算進捗の通知（80%到達 / 超過）をSupabase Edge Functionsで配信
+- 予算テンプレート（カテゴリ一括初期化）と繰り越し設定
 - 収入/支出を統合したキャッシュフロー分析
 - 会計向け科目別サマリと仕訳候補生成
 

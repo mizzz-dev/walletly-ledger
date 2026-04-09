@@ -89,6 +89,25 @@ drop policy if exists "プリセット更新はowner/editorのみ" on public.cat
 create policy "プリセット更新はowner/editorのみ" on public.category_split_presets
 for update using (public.can_edit_household(household_id));
 
+drop policy if exists "予算は世帯メンバーのみ参照可能" on public.budgets;
+create policy "予算は世帯メンバーのみ参照可能" on public.budgets
+for select using (public.is_household_member(household_id));
+
+drop policy if exists "予算作成はowner/editorのみ" on public.budgets;
+create policy "予算作成はowner/editorのみ" on public.budgets
+for insert with check (
+  public.can_edit_household(household_id)
+  and created_by = auth.uid()
+);
+
+drop policy if exists "予算更新はowner/editorのみ" on public.budgets;
+create policy "予算更新はowner/editorのみ" on public.budgets
+for update using (public.can_edit_household(household_id));
+
+drop policy if exists "予算削除はowner/editorのみ" on public.budgets;
+create policy "予算削除はowner/editorのみ" on public.budgets
+for delete using (public.can_edit_household(household_id));
+
 drop policy if exists "取引は世帯メンバーのみ参照可能" on public.transactions;
 create policy "取引は世帯メンバーのみ参照可能" on public.transactions
 for select using (public.is_household_member(household_id));
