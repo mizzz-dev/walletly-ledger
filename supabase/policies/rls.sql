@@ -169,3 +169,56 @@ with check (
   user_id = auth.uid()
   and public.is_household_member(household_id)
 );
+
+alter table public.receipt_attachments enable row level security;
+
+drop policy if exists "添付は世帯メンバーのみ参照可能" on public.receipt_attachments;
+create policy "添付は世帯メンバーのみ参照可能" on public.receipt_attachments
+for select using (public.is_household_member(household_id));
+
+drop policy if exists "添付作成はowner/editorのみ" on public.receipt_attachments;
+create policy "添付作成はowner/editorのみ" on public.receipt_attachments
+for insert with check (
+  public.can_edit_household(household_id)
+  and uploaded_by = auth.uid()
+);
+
+drop policy if exists "添付更新はowner/editorのみ" on public.receipt_attachments;
+create policy "添付更新はowner/editorのみ" on public.receipt_attachments
+for update using (public.can_edit_household(household_id));
+
+drop policy if exists "添付削除はowner/editorのみ" on public.receipt_attachments;
+create policy "添付削除はowner/editorのみ" on public.receipt_attachments
+for delete using (public.can_edit_household(household_id));
+
+drop policy if exists "receipt画像は世帯メンバーのみ参照" on storage.objects;
+create policy "receipt画像は世帯メンバーのみ参照" on storage.objects
+for select using (
+  bucket_id = 'receipt-attachments'
+  and split_part(name, '/', 1) ~* '^[0-9a-f-]{36}$'
+  and public.is_household_member((split_part(name, '/', 1))::uuid)
+);
+
+drop policy if exists "receipt画像アップロードはowner/editorのみ" on storage.objects;
+create policy "receipt画像アップロードはowner/editorのみ" on storage.objects
+for insert with check (
+  bucket_id = 'receipt-attachments'
+  and split_part(name, '/', 1) ~* '^[0-9a-f-]{36}$'
+  and public.can_edit_household((split_part(name, '/', 1))::uuid)
+);
+
+drop policy if exists "receipt画像更新はowner/editorのみ" on storage.objects;
+create policy "receipt画像更新はowner/editorのみ" on storage.objects
+for update using (
+  bucket_id = 'receipt-attachments'
+  and split_part(name, '/', 1) ~* '^[0-9a-f-]{36}$'
+  and public.can_edit_household((split_part(name, '/', 1))::uuid)
+);
+
+drop policy if exists "receipt画像削除はowner/editorのみ" on storage.objects;
+create policy "receipt画像削除はowner/editorのみ" on storage.objects
+for delete using (
+  bucket_id = 'receipt-attachments'
+  and split_part(name, '/', 1) ~* '^[0-9a-f-]{36}$'
+  and public.can_edit_household((split_part(name, '/', 1))::uuid)
+);

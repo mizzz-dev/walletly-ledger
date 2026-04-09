@@ -23,6 +23,8 @@
 - 支出保存時の予算しきい値判定（80%到達 / 100%超過）による通知生成
 - `/settlements` 表示時の未精算状態チェックによるリマインド通知生成
 - PWA Service Worker の Push受信ハンドラ（通知表示 / 通知クリック遷移）
+- レシート / 領収書画像のアップロード + Supabase Storage保存基盤（receipt_attachments）
+- OCR（モックprovider）による支出下書き生成と `/transactions/new` への自動入力
 - 分割ロジック / 清算ロジック / payload整形 / 集計ロジックの単体テスト
 
 ## データアクセス構成
@@ -39,12 +41,23 @@
 - `src/lib/budgets/service.ts` : 予算画面・ダッシュボード連携向けサービス
 - `src/lib/notifications/*` : 通知判定ロジック（予算・精算）
 - `src/lib/repositories/notification-repository.ts` : 通知テーブルのSupabaseアクセス
+- `src/lib/repositories/receipt-repository.ts` : レシート添付テーブル + Storageアクセス
+- `src/lib/ocr/*` : OCR provider抽象化 / 正規化 / draft変換
 
 ## 画面ごとの使い方
 ### 支出登録 `/transactions/new`
 1. 金額・カテゴリ・支払者・日付を入力
 2. 必要に応じて分担プレビューを手動調整
 3. 「支出を保存」で `transactions` と `splits` を連続保存
+
+### レシートOCR取り込み（`/transactions/new` 内）
+1. 「レシートを選択 / 撮影」で `image/*` をアップロード（モバイルは `capture` 対応）
+2. 画像を Supabase Storage バケット `receipt-attachments` に保存
+3. OCR provider（現時点は `MockOcrProvider`）で `rawText` を取得
+4. `ReceiptDraft`（金額・日付・店舗名・メモ候補）をフォーム初期値に反映
+5. ユーザーが修正後に通常の支出保存を行い、`receipt_attachments.transaction_id` と紐づけ
+
+> 注意: OCRは現時点でモック実装です。認識精度ではなく、呼び出し口・型・UI連携の基盤を優先しています。
 
 ### 取引一覧 `/transactions`
 - 現在選択中の世帯 / 台帳に紐づく取引を新しい順で表示
@@ -88,6 +101,7 @@
 - `202604050001_transactions_settlements_core.sql`（今回追加）
 - `202604090001_budgets_monthly_management.sql`（今回追加）
 - `202604090002_notifications_foundation.sql`（今回追加）
+- `202604090003_receipt_ocr_foundation.sql`（今回追加）
 - policy:
   - `supabase/policies/rls.sql`
 
@@ -98,6 +112,7 @@ RLS方針（今回）:
 - `created_by` / `payer_membership_id` / 精算対象membershipの整合を policy 側でチェック
 - `budgets` は householdメンバー参照可、owner/editorのみ作成・更新・削除可
 - `notifications` は本人のみ参照・既読化可能、owner/editorが生成可能
+- `receipt_attachments` は世帯メンバー参照可、owner/editorのみ作成・更新・削除可
 
 ## セットアップ
 ```bash
@@ -110,6 +125,7 @@ npm run dev
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
+NEXT_PUBLIC_SUPABASE_RECEIPT_BUCKET=receipt-attachments
 # セッションがない開発環境向け任意
 NEXT_PUBLIC_DEFAULT_USER_ID=
 # true の場合はプリセットのみモック実装
@@ -129,7 +145,9 @@ NEXT_PUBLIC_USE_MOCK_PRESET=false
 - 取引一覧の詳細フィルタ（カテゴリ/支払者/期間）は未実装
 - 取引更新・削除、精算記録の取消は未実装
 - `transactions` + `splits` はアプリ側で連続保存（DBトランザクション関数化は未実装）
-- OCR / 銀行明細連携 / 仕訳出力は未着手
+- OCR providerはモック実装（`MockOcrProvider`）で、実画像認識の精度保証は未対応
+- 行明細抽出・税額抽出・インボイス番号抽出は未実装（rawText保持まで）
+- 銀行明細連携 / 仕訳出力は未着手
 - 予算期間は現時点で月次（`YYYY-MM`）固定
 - 通知生成トリガーは現時点で画面操作起点（支出保存時 / 精算画面表示時）
 - Pushは受信ハンドラのみ実装（配信は未実装）
@@ -145,6 +163,9 @@ NEXT_PUBLIC_USE_MOCK_PRESET=false
 - Push送信API（Web Push）と push_sent_at 更新
 - 通知チャネル拡張（メール / LINE）と配信設定管理
 - 予算テンプレート（カテゴリ一括初期化）と繰り越し設定
+- 高精度OCR provider（Cloud Vision / Textract / Azure OCR 等）の差し替え
+- 行明細抽出・税額抽出・適格請求書番号抽出（税務用途）
+- 領収書台帳画面（検索・再OCR・添付再紐づけ）
 - 収入/支出を統合したキャッシュフロー分析
 - 会計向け科目別サマリと仕訳候補生成
 

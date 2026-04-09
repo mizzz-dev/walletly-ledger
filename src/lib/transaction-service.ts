@@ -1,3 +1,4 @@
+import { linkAttachmentToTransaction } from "@/lib/repositories/receipt-repository";
 import { createTransactionWithSplits, listTransactionsByLedger } from "@/lib/repositories/transaction-repository";
 import { CreateTransactionInput, toSplitInsertPayloads, toTransactionInsertPayload } from "@/lib/transactions/payload";
 import { TransactionListItem } from "@/types/domain";
@@ -11,7 +12,18 @@ export const createExpenseTransaction = async (input: CreateTransactionInput) =>
     splitResults: input.splitResults,
   });
 
-  return createTransactionWithSplits({ transaction, splits: splitPayloads });
+  const transactionId = await createTransactionWithSplits({ transaction, splits: splitPayloads });
+
+  if (input.receiptAttachmentId) {
+    await linkAttachmentToTransaction({
+      attachmentId: input.receiptAttachmentId,
+      transactionId,
+      householdId: input.householdId,
+      ledgerId: input.ledgerId,
+    });
+  }
+
+  return transactionId;
 };
 
 export const listTransactionItems = async ({
