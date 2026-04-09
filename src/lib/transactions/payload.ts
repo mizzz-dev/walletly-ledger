@@ -14,6 +14,7 @@ export interface CreateTransactionInput {
   appliedPresetId?: string | null;
   splitResults: SplitResult[];
   validMemberIds: string[];
+  receiptAttachmentId?: string | null;
 }
 
 export interface TransactionInsertPayload {

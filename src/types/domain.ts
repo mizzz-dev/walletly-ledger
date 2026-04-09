@@ -58,6 +58,57 @@ export interface MemberOption {
   name: string;
 }
 
+
+export interface ReceiptLineItem {
+  id: string;
+  name: string;
+  amount: number | null;
+  quantity: number | null;
+  confidence: number | null;
+}
+
+export interface ReceiptOcrResult {
+  totalAmount: number | null;
+  date: string | null;
+  merchantName: string | null;
+  taxAmount: number | null;
+  paymentMethod: string | null;
+  rawText: string;
+  confidence: number | null;
+  lineItems: ReceiptLineItem[];
+  amountCandidates: number[];
+  dateCandidates: string[];
+}
+
+export interface ReceiptDraft {
+  amount: number | null;
+  transactionDate: string | null;
+  merchantName: string | null;
+  noteCandidate: string;
+  rawText: string;
+  confidence: number | null;
+  categorySuggestion: string | null;
+  paymentMethod: string | null;
+}
+
+export type ReceiptAttachmentOcrStatus = "pending" | "completed" | "failed";
+
+export interface ReceiptAttachment {
+  id: string;
+  householdId: string;
+  ledgerId: string;
+  transactionId: string | null;
+  uploadedBy: string;
+  storagePath: string;
+  fileName: string;
+  contentType: string;
+  fileSize: number;
+  ocrStatus: ReceiptAttachmentOcrStatus;
+  ocrRawText: string | null;
+  ocrConfidence: number | null;
+  createdAt: string;
+}
+
 export interface Transaction {
   id: string;
   ledgerId: string;

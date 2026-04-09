@@ -1,17 +1,34 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createExpenseTransaction } from "@/lib/transaction-service";
+import { MockOcrProvider, extractReceiptDraftWithProvider } from "@/lib/ocr/receipt-service";
 import { generateBudgetNotificationsOnTransactionSaved } from "@/lib/notifications/service";
+import { createReceiptAttachment, updateReceiptAttachmentOcr } from "@/lib/repositories/receipt-repository";
+import { createExpenseTransaction } from "@/lib/transaction-service";
+import { ReceiptDraft } from "@/types/domain";
 
 export interface SaveTransactionState {
   ok: boolean;
   message: string;
 }
 
+export interface GenerateReceiptDraftState {
+  ok: boolean;
+  message: string;
+  draft: ReceiptDraft | null;
+  receiptAttachmentId: string | null;
+}
+
 export const initialSaveTransactionState: SaveTransactionState = {
   ok: false,
   message: "",
+};
+
+export const initialGenerateReceiptDraftState: GenerateReceiptDraftState = {
+  ok: false,
+  message: "",
+  draft: null,
+  receiptAttachmentId: null,
 };
 
 export const saveTransactionAction = async (
@@ -30,6 +47,7 @@ export const saveTransactionAction = async (
     const merchant = String(formData.get("merchant") ?? "");
     const transactionDate = String(formData.get("transactionDate") ?? "");
     const appliedPresetId = String(formData.get("appliedPresetId") ?? "") || null;
+    const receiptAttachmentId = String(formData.get("receiptAttachmentId") ?? "") || null;
 
     const splitPayload = String(formData.get("splitPayload") ?? "[]");
     const validMemberIdsPayload = String(formData.get("validMemberIds") ?? "[]");
@@ -51,6 +69,7 @@ export const saveTransactionAction = async (
       appliedPresetId,
       splitResults,
       validMemberIds,
+      receiptAttachmentId,
     });
     await generateBudgetNotificationsOnTransactionSaved({
       householdId,
@@ -66,5 +85,63 @@ export const saveTransactionAction = async (
   } catch (error) {
     const message = error instanceof Error ? error.message : "支出の保存に失敗しました";
     return { ok: false, message };
+  }
+};
+
+export const generateReceiptDraftAction = async (formData: FormData): Promise<GenerateReceiptDraftState> => {
+  const householdId = String(formData.get("householdId") ?? "");
+  const ledgerId = String(formData.get("ledgerId") ?? "");
+  const userId = String(formData.get("userId") ?? "");
+  const file = formData.get("receiptImage");
+
+  if (!(file instanceof File)) {
+    return { ...initialGenerateReceiptDraftState, message: "画像ファイルが見つかりませんでした" };
+  }
+
+  let attachmentId: string | null = null;
+
+  try {
+    const attachment = await createReceiptAttachment({
+      householdId,
+      ledgerId,
+      uploadedBy: userId,
+      file,
+    });
+    attachmentId = attachment.id;
+
+    const { draft, ocrResult } = await extractReceiptDraftWithProvider({
+      file,
+      provider: new MockOcrProvider(),
+    });
+
+    await updateReceiptAttachmentOcr({
+      attachmentId: attachment.id,
+      rawText: ocrResult.rawText,
+      confidence: ocrResult.confidence,
+      status: "completed",
+    });
+
+    return {
+      ok: true,
+      message: "OCR候補を生成しました。内容を確認してから保存してください。",
+      draft,
+      receiptAttachmentId: attachment.id,
+    };
+  } catch (error) {
+    if (attachmentId) {
+      try {
+        await updateReceiptAttachmentOcr({
+          attachmentId,
+          rawText: "",
+          confidence: null,
+          status: "failed",
+        });
+      } catch {
+        // 二次障害は握りつぶし、元エラーを優先して返す
+      }
+    }
+
+    const message = error instanceof Error ? error.message : "OCR候補の生成に失敗しました";
+    return { ...initialGenerateReceiptDraftState, message };
   }
 };
