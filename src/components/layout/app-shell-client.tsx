@@ -16,6 +16,7 @@ const menus = [
   { href: "/budgets", label: "予算" },
   { href: "/settlements", label: "清算" },
   { href: "/notifications", label: "通知" },
+  { href: "/banking", label: "銀行連携" },
   { href: "/admin/presets", label: "プリセット管理" },
 ];
 

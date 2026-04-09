@@ -295,3 +295,77 @@ export interface PresetMatchInput {
   transactionDate: string;
   merchantName?: string;
 }
+
+export type BankProvider = "mock" | "minna_bank" | "aggregator";
+export type BankConnectionStatus = "connected" | "error" | "disconnected" | "pending";
+export type BankAccountType = "checking" | "savings" | "credit" | "other";
+export type BankTransactionDirection = "inflow" | "outflow";
+export type BankTransactionMatchStatus = "pending" | "imported" | "skipped";
+
+export interface BankConnection {
+  id: string;
+  householdId: string;
+  ledgerId: string | null;
+  provider: BankProvider;
+  status: BankConnectionStatus;
+  externalConnectionId: string | null;
+  lastSyncedAt: string | null;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BankAccount {
+  id: string;
+  connectionId: string;
+  householdId: string;
+  ledgerId: string | null;
+  providerAccountId: string;
+  displayName: string;
+  accountType: BankAccountType;
+  currency: string;
+  maskedAccountNumber: string | null;
+  isShared: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BankTransaction {
+  id: string;
+  bankAccountId: string;
+  householdId: string;
+  ledgerId: string | null;
+  providerTransactionId: string | null;
+  postedAt: string;
+  bookedAt: string | null;
+  amount: number;
+  currency: string;
+  direction: BankTransactionDirection;
+  description: string;
+  counterparty: string | null;
+  rawPayload: Record<string, unknown>;
+  transactionHash: string;
+  importedTransactionId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ImportedTransactionCandidate {
+  bankTransactionId: string;
+  suggestedAmount: number;
+  suggestedDate: string;
+  suggestedMerchant: string;
+  suggestedNote: string;
+  suggestedCategoryId: string | null;
+  matchStatus: BankTransactionMatchStatus;
+  confidence: number | null;
+}
+
+export interface BankTransactionDraft {
+  amount: number;
+  transactionDate: string;
+  merchantName: string;
+  noteCandidate: string;
+  categorySuggestion: string | null;
+  importedBankTransactionId: string;
+}
