@@ -1,4 +1,5 @@
 import { linkAttachmentToTransaction } from "@/lib/repositories/receipt-repository";
+import { markBankTransactionImported } from "@/lib/banking/repositories/banking-repository";
 import { createTransactionWithSplits, listTransactionsByLedger } from "@/lib/repositories/transaction-repository";
 import { CreateTransactionInput, toSplitInsertPayloads, toTransactionInsertPayload } from "@/lib/transactions/payload";
 import { TransactionListItem } from "@/types/domain";
@@ -20,6 +21,13 @@ export const createExpenseTransaction = async (input: CreateTransactionInput) =>
       transactionId,
       householdId: input.householdId,
       ledgerId: input.ledgerId,
+    });
+  }
+
+  if (input.importedBankTransactionId) {
+    await markBankTransactionImported({
+      bankTransactionId: input.importedBankTransactionId,
+      transactionId,
     });
   }
 

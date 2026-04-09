@@ -9,6 +9,10 @@ alter table public.settlements enable row level security;
 alter table public.budgets enable row level security;
 alter table public.category_split_presets enable row level security;
 alter table public.notifications enable row level security;
+alter table public.bank_connections enable row level security;
+alter table public.bank_accounts enable row level security;
+alter table public.bank_transactions enable row level security;
+alter table public.imported_transaction_candidates enable row level security;
 
 create or replace function public.is_household_member(target_household_id uuid)
 returns boolean
@@ -222,3 +226,46 @@ for delete using (
   and split_part(name, '/', 1) ~* '^[0-9a-f-]{36}$'
   and public.can_edit_household((split_part(name, '/', 1))::uuid)
 );
+
+
+drop policy if exists "銀行接続は世帯メンバーのみ参照可能" on public.bank_connections;
+create policy "銀行接続は世帯メンバーのみ参照可能" on public.bank_connections
+for select using (public.is_household_member(household_id));
+
+drop policy if exists "銀行接続作成はowner/editorのみ" on public.bank_connections;
+create policy "銀行接続作成はowner/editorのみ" on public.bank_connections
+for insert with check (
+  public.can_edit_household(household_id)
+  and created_by = auth.uid()
+);
+
+drop policy if exists "銀行接続更新はowner/editorのみ" on public.bank_connections;
+create policy "銀行接続更新はowner/editorのみ" on public.bank_connections
+for update using (public.can_edit_household(household_id));
+
+drop policy if exists "銀行口座は世帯メンバーのみ参照可能" on public.bank_accounts;
+create policy "銀行口座は世帯メンバーのみ参照可能" on public.bank_accounts
+for select using (public.is_household_member(household_id));
+
+drop policy if exists "銀行口座作成更新はowner/editorのみ" on public.bank_accounts;
+create policy "銀行口座作成更新はowner/editorのみ" on public.bank_accounts
+for all using (public.can_edit_household(household_id))
+with check (public.can_edit_household(household_id));
+
+drop policy if exists "銀行明細は世帯メンバーのみ参照可能" on public.bank_transactions;
+create policy "銀行明細は世帯メンバーのみ参照可能" on public.bank_transactions
+for select using (public.is_household_member(household_id));
+
+drop policy if exists "銀行明細作成更新はowner/editorのみ" on public.bank_transactions;
+create policy "銀行明細作成更新はowner/editorのみ" on public.bank_transactions
+for all using (public.can_edit_household(household_id))
+with check (public.can_edit_household(household_id));
+
+drop policy if exists "取込候補は世帯メンバーのみ参照可能" on public.imported_transaction_candidates;
+create policy "取込候補は世帯メンバーのみ参照可能" on public.imported_transaction_candidates
+for select using (public.is_household_member(household_id));
+
+drop policy if exists "取込候補作成更新はowner/editorのみ" on public.imported_transaction_candidates;
+create policy "取込候補作成更新はowner/editorのみ" on public.imported_transaction_candidates
+for all using (public.can_edit_household(household_id))
+with check (public.can_edit_household(household_id));

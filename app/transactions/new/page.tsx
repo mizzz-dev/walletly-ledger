@@ -5,7 +5,15 @@ import { NewTransactionClient } from "./transaction-form-client";
 export default async function NewTransactionPage({
   searchParams,
 }: {
-  searchParams: Promise<{ householdId?: string; ledgerId?: string }>;
+  searchParams: Promise<{
+    householdId?: string;
+    ledgerId?: string;
+    bankTransactionId?: string;
+    amount?: string;
+    date?: string;
+    merchant?: string;
+    note?: string;
+  }>;
 }) {
   const params = await searchParams;
   const context = await resolveAppContext({ householdId: params.householdId, ledgerId: params.ledgerId });
@@ -30,6 +38,13 @@ export default async function NewTransactionPage({
       ledgerId={context.currentLedgerId}
       userId={context.userId}
       currency={currentLedger?.currency ?? "JPY"}
+      initialBankDraft={{
+        importedBankTransactionId: params.bankTransactionId ?? null,
+        amount: Number(params.amount ?? 0),
+        date: params.date ?? null,
+        merchant: params.merchant ?? null,
+        note: params.note ?? null,
+      }}
     />
   );
 }

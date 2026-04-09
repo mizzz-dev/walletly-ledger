@@ -15,6 +15,7 @@ export interface CreateTransactionInput {
   splitResults: SplitResult[];
   validMemberIds: string[];
   receiptAttachmentId?: string | null;
+  importedBankTransactionId?: string | null;
 }
 
 export interface TransactionInsertPayload {
@@ -29,6 +30,7 @@ export interface TransactionInsertPayload {
   transaction_date: string;
   applied_preset_id: string | null;
   created_by: string;
+  imported_bank_transaction_id: string | null;
 }
 
 export interface SplitInsertPayload {
@@ -98,6 +100,7 @@ export const toTransactionInsertPayload = (input: CreateTransactionInput): Trans
     transaction_date: input.transactionDate,
     applied_preset_id: input.appliedPresetId ?? null,
     created_by: input.createdBy,
+    imported_bank_transaction_id: input.importedBankTransactionId ?? null,
   };
 };
 

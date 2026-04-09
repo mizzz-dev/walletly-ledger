@@ -20,22 +20,41 @@ interface Props {
   ledgerId: string;
   userId: string;
   currency: string;
+  initialBankDraft: {
+    importedBankTransactionId: string | null;
+    amount: number;
+    date: string | null;
+    merchant: string | null;
+    note: string | null;
+  };
 }
 
 const to2 = (value: number) => Number(value.toFixed(2));
 
-export const NewTransactionClient = ({ presets, categories, members, householdId, ledgerId, userId, currency }: Props) => {
+export const NewTransactionClient = ({
+  presets,
+  categories,
+  members,
+  householdId,
+  ledgerId,
+  userId,
+  currency,
+  initialBankDraft,
+}: Props) => {
   const [state, formAction, isPending] = useActionState(saveTransactionAction, initialSaveTransactionState);
-  const [amount, setAmount] = useState(0);
+  const [amount, setAmount] = useState(initialBankDraft.amount > 0 ? initialBankDraft.amount : 0);
   const [method, setMethod] = useState<SplitMethod>("equal");
-  const [note, setNote] = useState("");
-  const [merchantName, setMerchantName] = useState("");
+  const [note, setNote] = useState(initialBankDraft.note ?? "");
+  const [merchantName, setMerchantName] = useState(initialBankDraft.merchant ?? "");
   const [categoryId, setCategoryId] = useState(categories[0]?.id ?? "");
   const [payerMembershipId, setPayerMembershipId] = useState(members[0]?.membershipId ?? "");
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(initialBankDraft.date ?? new Date().toISOString().slice(0, 10));
   const [appliedPresetId, setAppliedPresetId] = useState<string | null>(null);
   const [manualPreview, setManualPreview] = useState<Record<string, number>>({});
   const [receiptAttachmentId, setReceiptAttachmentId] = useState<string | null>(null);
+  const [importedBankTransactionId, setImportedBankTransactionId] = useState<string | null>(
+    initialBankDraft.importedBankTransactionId,
+  );
 
   useEffect(() => {
     if (!categoryId && categories[0]) {
@@ -93,6 +112,7 @@ export const NewTransactionClient = ({ presets, categories, members, householdId
     setMerchantName("");
     setManualPreview({});
     setReceiptAttachmentId(null);
+    setImportedBankTransactionId(null);
   }, [state.ok]);
 
   const applyDraft = (draft: ReceiptDraft, nextAttachmentId: string | null) => {
@@ -129,9 +149,11 @@ export const NewTransactionClient = ({ presets, categories, members, householdId
       <input type="hidden" name="splitPayload" value={JSON.stringify(preview)} />
       <input type="hidden" name="validMemberIds" value={JSON.stringify(members.map((member) => member.membershipId))} />
       <input type="hidden" name="receiptAttachmentId" value={receiptAttachmentId ?? ""} />
+      <input type="hidden" name="importedBankTransactionId" value={importedBankTransactionId ?? ""} />
 
       <Card className="space-y-4">
         <h1 className="text-xl font-bold">支出追加</h1>
+        {importedBankTransactionId ? <p className="text-xs text-emerald-700">銀行明細の候補を読み込み済みです。</p> : null}
         <ReceiptOcrPanel householdId={householdId} ledgerId={ledgerId} userId={userId} onDraftReady={applyDraft} />
         <div className="grid gap-3 md:grid-cols-2">
           <label className="space-y-1 text-sm">

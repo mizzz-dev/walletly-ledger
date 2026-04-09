@@ -25,6 +25,7 @@
 - PWA Service Worker の Push受信ハンドラ（通知表示 / 通知クリック遷移）
 - レシート / 領収書画像のアップロード + Supabase Storage保存基盤（receipt_attachments）
 - OCR（モックprovider）による支出下書き生成と `/transactions/new` への自動入力
+- 銀行連携基盤（mock provider）: 接続作成、口座同期、明細保存、重複排除、候補化、`/transactions/new` 連携
 - 分割ロジック / 清算ロジック / payload整形 / 集計ロジックの単体テスト
 
 ## データアクセス構成
@@ -58,6 +59,16 @@
 5. ユーザーが修正後に通常の支出保存を行い、`receipt_attachments.transaction_id` と紐づけ
 
 > 注意: OCRは現時点でモック実装です。認識精度ではなく、呼び出し口・型・UI連携の基盤を優先しています。
+
+
+### 銀行連携 `/banking` / `/banking/transactions`
+1. `/banking` でモック provider の接続を作成
+2. 接続カードの「手動同期」で口座・明細を取り込み
+3. `/banking/transactions` で明細候補を確認（口座フィルタ / 未取込フィルタ）
+4. 「支出として取り込む」で `/transactions/new` に金額・日付・店舗・メモを下書き反映
+5. 保存後、対象明細は取込済みとして表示
+
+> 注意: 現時点では `mock` provider のみ実装しています。`minna_bank` / `aggregator` は interface と差し替え点のみ用意し、実API接続は次段で実装予定です。
 
 ### 取引一覧 `/transactions`
 - 現在選択中の世帯 / 台帳に紐づく取引を新しい順で表示
@@ -102,6 +113,7 @@
 - `202604090001_budgets_monthly_management.sql`（今回追加）
 - `202604090002_notifications_foundation.sql`（今回追加）
 - `202604090003_receipt_ocr_foundation.sql`（今回追加）
+- `202604090004_banking_foundation.sql`（今回追加）
 - policy:
   - `supabase/policies/rls.sql`
 
@@ -113,6 +125,10 @@ RLS方針（今回）:
 - `budgets` は householdメンバー参照可、owner/editorのみ作成・更新・削除可
 - `notifications` は本人のみ参照・既読化可能、owner/editorが生成可能
 - `receipt_attachments` は世帯メンバー参照可、owner/editorのみ作成・更新・削除可
+- `bank_connections / bank_accounts / bank_transactions / imported_transaction_candidates` を追加し、household/ledgerスコープで管理
+- 重複防止は `provider_transaction_id` 優先 + `transaction_hash` フォールバックでユニーク制約
+- `transactions.imported_bank_transaction_id` と `bank_transactions.imported_transaction_id` で取込済み状態を追跡
+- RLSで銀行データも householdメンバー参照可、owner/editor のみ作成・同期・更新可
 
 ## セットアップ
 ```bash
@@ -147,7 +163,7 @@ NEXT_PUBLIC_USE_MOCK_PRESET=false
 - `transactions` + `splits` はアプリ側で連続保存（DBトランザクション関数化は未実装）
 - OCR providerはモック実装（`MockOcrProvider`）で、実画像認識の精度保証は未対応
 - 行明細抽出・税額抽出・インボイス番号抽出は未実装（rawText保持まで）
-- 銀行明細連携 / 仕訳出力は未着手
+- 銀行連携は基盤実装まで（mock providerで接続/同期/候補化）。本番APIトークン暗号化・KMS連携は未実装
 - 予算期間は現時点で月次（`YYYY-MM`）固定
 - 通知生成トリガーは現時点で画面操作起点（支出保存時 / 精算画面表示時）
 - Pushは受信ハンドラのみ実装（配信は未実装）
@@ -166,6 +182,11 @@ NEXT_PUBLIC_USE_MOCK_PRESET=false
 - 高精度OCR provider（Cloud Vision / Textract / Azure OCR 等）の差し替え
 - 行明細抽出・税額抽出・適格請求書番号抽出（税務用途）
 - 領収書台帳画面（検索・再OCR・添付再紐づけ）
+- みんなの銀行API連携（OAuth / credential保護 / Edge Functions経由）
+- アグリゲータ接続（Moneytree等）のprovider追加
+- 銀行明細の自動カテゴリ推定とプリセット自動適用
+- 入出金を活用した自動split提案
+- 明細から会計仕訳（journals / journal_lines）候補生成
 - 収入/支出を統合したキャッシュフロー分析
 - 会計向け科目別サマリと仕訳候補生成
 

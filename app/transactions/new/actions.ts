@@ -48,6 +48,7 @@ export const saveTransactionAction = async (
     const transactionDate = String(formData.get("transactionDate") ?? "");
     const appliedPresetId = String(formData.get("appliedPresetId") ?? "") || null;
     const receiptAttachmentId = String(formData.get("receiptAttachmentId") ?? "") || null;
+    const importedBankTransactionId = String(formData.get("importedBankTransactionId") ?? "") || null;
 
     const splitPayload = String(formData.get("splitPayload") ?? "[]");
     const validMemberIdsPayload = String(formData.get("validMemberIds") ?? "[]");
@@ -70,6 +71,7 @@ export const saveTransactionAction = async (
       splitResults,
       validMemberIds,
       receiptAttachmentId,
+      importedBankTransactionId,
     });
     await generateBudgetNotificationsOnTransactionSaved({
       householdId,
