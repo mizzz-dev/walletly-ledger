@@ -3,6 +3,8 @@ import { createJournalDraftFromTransaction } from "@/lib/accounting/journal-draf
 import { listAccountsByLedger, listJournalsByLedger, listTransactionsForJournalDraft, createJournalWithLines } from "@/lib/accounting/repositories/accounting-repository";
 import { isSupportedTaxCode } from "@/lib/accounting/tax-mapping";
 import { LedgerType } from "@/types/domain";
+import { assertLedgerPeriodEditableIfWork } from "@/lib/accounting/closure-guard";
+import { writeAuditLog } from "@/lib/audit/service";
 
 export const listLedgerJournals = async ({ householdId, ledgerId, ledgerType }: { householdId: string; ledgerId: string; ledgerType: LedgerType }) => {
   if (ledgerType !== "work") {
@@ -92,6 +94,13 @@ export const saveJournalDraft = async ({
     throw new Error("work台帳以外では仕訳を作成できません");
   }
 
+  await assertLedgerPeriodEditableIfWork({
+    householdId,
+    ledgerId,
+    date: journalDate,
+    operationLabel: "仕訳保存",
+  });
+
   if (!debitAccountId || !creditAccountId) {
     throw new Error("勘定科目が未設定です");
   }
@@ -109,7 +118,7 @@ export const saveJournalDraft = async ({
     throw new Error("貸借が一致していません");
   }
 
-  return createJournalWithLines({
+  const journalId = await createJournalWithLines({
     journal: {
       household_id: householdId,
       ledger_id: ledgerId,
@@ -139,4 +148,25 @@ export const saveJournalDraft = async ({
       },
     ],
   });
+
+  await writeAuditLog({
+    householdId,
+    ledgerId,
+    actorUserId: createdBy,
+    entityType: "journal",
+    entityId: journalId,
+    action: "create",
+    afterJson: {
+      journalDate,
+      description,
+      sourceType,
+      sourceReferenceId,
+      debitAmount,
+      creditAmount,
+      debitAccountId,
+      creditAccountId,
+    },
+  });
+
+  return journalId;
 };

@@ -341,3 +341,39 @@ with check (
       and public.is_work_ledger(j.ledger_id)
   )
 );
+
+alter table public.ledger_closures enable row level security;
+alter table public.audit_logs enable row level security;
+
+drop policy if exists "月次締めは世帯メンバーのみ参照可能" on public.ledger_closures;
+create policy "月次締めは世帯メンバーのみ参照可能" on public.ledger_closures
+for select using (
+  public.is_household_member(household_id)
+  and public.is_work_ledger(ledger_id)
+);
+
+drop policy if exists "月次締めはowner/editorのみ作成更新" on public.ledger_closures;
+create policy "月次締めはowner/editorのみ作成更新" on public.ledger_closures
+for all using (
+  public.can_edit_household(household_id)
+  and public.is_work_ledger(ledger_id)
+)
+with check (
+  public.can_edit_household(household_id)
+  and public.is_work_ledger(ledger_id)
+);
+
+drop policy if exists "監査ログは世帯メンバーのみ参照可能" on public.audit_logs;
+create policy "監査ログは世帯メンバーのみ参照可能" on public.audit_logs
+for select using (
+  public.is_household_member(household_id)
+  and (ledger_id is null or public.is_work_ledger(ledger_id))
+);
+
+drop policy if exists "監査ログの作成はowner/editorのみ" on public.audit_logs;
+create policy "監査ログの作成はowner/editorのみ" on public.audit_logs
+for insert with check (
+  public.can_edit_household(household_id)
+  and (ledger_id is null or public.is_work_ledger(ledger_id))
+  and actor_user_id = auth.uid()
+);

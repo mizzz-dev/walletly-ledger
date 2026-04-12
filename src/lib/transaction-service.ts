@@ -3,8 +3,17 @@ import { markBankTransactionImported } from "@/lib/banking/repositories/banking-
 import { createTransactionWithSplits, listTransactionsByLedger } from "@/lib/repositories/transaction-repository";
 import { CreateTransactionInput, toSplitInsertPayloads, toTransactionInsertPayload } from "@/lib/transactions/payload";
 import { TransactionListItem } from "@/types/domain";
+import { assertLedgerPeriodEditableIfWork } from "@/lib/accounting/closure-guard";
+import { writeAuditLog } from "@/lib/audit/service";
 
 export const createExpenseTransaction = async (input: CreateTransactionInput) => {
+  await assertLedgerPeriodEditableIfWork({
+    householdId: input.householdId,
+    ledgerId: input.ledgerId,
+    date: input.transactionDate,
+    operationLabel: "取引の保存",
+  });
+
   const transaction = toTransactionInsertPayload(input);
   const splitPayloads = toSplitInsertPayloads({
     householdId: input.householdId,
@@ -30,6 +39,27 @@ export const createExpenseTransaction = async (input: CreateTransactionInput) =>
       transactionId,
     });
   }
+
+  await writeAuditLog({
+    householdId: input.householdId,
+    ledgerId: input.ledgerId,
+    actorUserId: input.createdBy,
+    entityType: "transaction",
+    entityId: transactionId,
+    action: "create",
+    afterJson: {
+      amount: input.amount,
+      date: input.transactionDate,
+      categoryId: input.categoryId,
+      payerMembershipId: input.payerMembershipId,
+      sourceType: input.sourceType,
+    },
+    metadataJson: {
+      splitCount: input.splitResults.length,
+      importedBankTransactionId: input.importedBankTransactionId,
+      receiptAttachmentId: input.receiptAttachmentId,
+    },
+  });
 
   return transactionId;
 };

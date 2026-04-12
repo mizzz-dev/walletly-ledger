@@ -1,5 +1,7 @@
 import { createSettlementRecord, listSettlementBaseRows } from "@/lib/repositories/settlement-repository";
 import { aggregateMemberNetSummaries, buildSettlementSuggestions } from "@/lib/settlements/aggregation";
+import { assertLedgerPeriodEditableIfWork } from "@/lib/accounting/closure-guard";
+import { writeAuditLog } from "@/lib/audit/service";
 
 const to2 = (value: number) => Number(value.toFixed(2));
 
@@ -88,15 +90,42 @@ export const saveSettlementRecord = async ({
 }) => {
   validateSettlementRecordInput({ fromMemberId, toMemberId, amount, validMemberIds });
 
-  await createSettlementRecord({
+  await assertLedgerPeriodEditableIfWork({
+    householdId,
+    ledgerId,
+    date: settledOn,
+    operationLabel: "精算記録の保存",
+  });
+
+  const normalizedAmount = to2(amount);
+  const normalizedNote = note?.trim() ? note.trim() : null;
+
+  const settlementId = await createSettlementRecord({
     household_id: householdId,
     ledger_id: ledgerId,
     from_membership_id: fromMemberId,
     to_membership_id: toMemberId,
-    amount: to2(amount),
+    amount: normalizedAmount,
     method,
-    note: note?.trim() ? note.trim() : null,
+    note: normalizedNote,
     settled_on: settledOn,
     created_by: createdBy,
+  });
+
+  await writeAuditLog({
+    householdId,
+    ledgerId,
+    actorUserId: createdBy,
+    entityType: "settlement",
+    entityId: settlementId,
+    action: "create",
+    afterJson: {
+      fromMemberId,
+      toMemberId,
+      amount: normalizedAmount,
+      method,
+      settledOn,
+      note: normalizedNote,
+    },
   });
 };

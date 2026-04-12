@@ -30,7 +30,8 @@
 - 銀行連携基盤（mock provider）: 接続作成、口座同期、明細保存、重複排除、候補化、レビュー連携
 - work台帳向け会計モード基盤（`/accounting/journals`）: 勘定科目マスタ、税区分、仕訳下書き生成、仕訳保存
 - 税務エクスポート基盤（work台帳）: 仕訳CSV（generic）、試算表（簡易）、総勘定元帳（簡易）、税区分集計プレビュー
-- 分割ロジック / 清算ロジック / payload整形 / 集計ロジック / 銀行候補生成の単体テスト
+- 月次締め / 監査ログ基盤（work台帳）: 月次締め実行、締め済み期間の保存制御、監査ログ一覧・詳細表示
+- 分割ロジック / 清算ロジック / payload整形 / 集計ロジック / 銀行候補生成 / 締め判定 / 監査payload整形の単体テスト
 
 ## データアクセス構成
 - `src/lib/repositories/*` : Supabaseとの入出力
@@ -58,6 +59,10 @@
 - `src/lib/accounting/export/*` : export row整形、CSV生成、将来フォーマット変換の拡張ポイント
 - `src/lib/accounting/reports/*` : 勘定科目別集計、試算表、元帳、税区分集計の純粋ロジック
 - `src/lib/accounting/reporting-service.ts` : 期間正規化、work台帳ガード、repository/report/exportのオーケストレーション
+- `src/lib/accounting/closures/*` : 月次締め期間の生成・保存・参照
+- `src/lib/accounting/closure-guard.ts` : 締め済み期間の編集禁止ガード
+- `src/lib/audit/*` : 監査ログpayload整形とサービス
+- `src/lib/audit/repositories/*` : 監査ログのSupabaseアクセス
 
 ## 画面ごとの使い方
 ### 支出登録 `/transactions/new`
@@ -106,6 +111,30 @@
 - transaction 由来の仕訳下書き変換ロジック
 - bank / ocr draftから将来仕訳化するための共通変換関数の土台
 - RLSで household/ledger/work スコープを維持
+
+
+### 月次締め（work台帳） `/accounting/closures`
+- owner/editor が `YYYY-MM` 指定で月次締めを実行
+- 締め済み期間は `ledger_closures` に保存し、対象期間を一覧表示
+- 締め実行時に監査ログ（`close_period`）を記録
+- サーバー側ガード + DBトリガーで、締め済み期間の以下保存を制限
+  - 取引 (`transactions`)
+  - 精算 (`settlements`)
+  - 仕訳 (`journals`, `journal_lines`)
+- family/custom 台帳では締め機能を表示制限
+
+### 監査ログ（work台帳） `/accounting/audit-logs`
+- 主要更新操作の監査ログを `audit_logs` に保存
+  - 取引作成 (`create`)
+  - 精算記録作成 (`create`)
+  - 仕訳作成 (`create`)
+  - 月次締め (`close_period`)
+- 一覧表示項目
+  - 日時 / 実行者 / エンティティ / アクション / 対象ID
+- フィルタ
+  - `entity_type` / `action` / 期間（開始・終了）
+- 詳細
+  - `before_json` / `after_json` / `metadata_json` をJSON表示
 
 ### 税務エクスポート / 会計レポート（work台帳）
 - `/accounting/exports`
@@ -256,6 +285,11 @@ NEXT_PUBLIC_USE_MOCK_PRESET=false
 - 税務エクスポートは generic CSV と簡易レポートまで（電子申告/申告書生成は未対応）
 - 消費税の厳密計算・税額自動算出・申告帳票出力は未実装（税区分集計は金額サマリのみ）
 - freee/マネーフォワード/弥生向けは変換層の拡張ポイントのみ用意（完全互換CSV・API連携は未実装）
+- 月次締めは「締める」まで実装（再オープンは未実装）
+- 承認ワークフロー（複数承認者・承認待ち状態）は未実装
+- 監査ログの差分比較UIはJSON表示まで（ハイライト比較は未実装）
+- 監査ログのCSV/PDFエクスポートは未実装
+- 月次締めと税務エクスポートの自動連動（締め期間のみ出力許可など）は未実装
 - カテゴリ推定はルールベースで、ユーザー修正の学習反映は未実装
 - 入金（inflow）はレビュー表示のみで、支出登録の自動対象外
 - 銀行連携providerはmock実装。実運用APIトークン暗号化・KMS連携は未実装
