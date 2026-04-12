@@ -88,6 +88,38 @@ export type DebitCredit = "debit" | "credit";
 export type AccountCategory = "asset" | "liability" | "equity" | "revenue" | "expense";
 export type ExportFormat = "generic_csv" | "yayoi_like" | "freee_like" | "mf_like";
 
+export type ClosureStatus = "open" | "closed";
+export type AuditAction = "create" | "update" | "delete" | "close_period" | "reopen_period" | "post_journal";
+export type AuditEntityType = "transaction" | "settlement" | "journal" | "journal_line" | "preset" | "closure";
+
+export interface AccountingPeriodClosure {
+  id: string;
+  householdId: string;
+  ledgerId: string;
+  periodStart: string;
+  periodEnd: string;
+  status: ClosureStatus;
+  closedAt: string | null;
+  closedBy: string | null;
+  note: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AuditLog {
+  id: string;
+  householdId: string;
+  ledgerId: string | null;
+  actorUserId: string;
+  entityType: AuditEntityType | string;
+  entityId: string;
+  action: AuditAction | string;
+  beforeJson: Record<string, unknown> | null;
+  afterJson: Record<string, unknown> | null;
+  metadataJson: Record<string, unknown> | null;
+  createdAt: string;
+}
+
 export interface AccountMaster {
   id: string;
   householdId: string;

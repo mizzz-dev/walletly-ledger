@@ -49,6 +49,12 @@ export default async function AccountingJournalsPage({
             <Link className="underline" href={`/accounting/reports/general-ledger?householdId=${context.currentHouseholdId}&ledgerId=${context.currentLedgerId}`}>
               総勘定元帳
             </Link>
+            <Link className="underline" href={`/accounting/closures?householdId=${context.currentHouseholdId}&ledgerId=${context.currentLedgerId}`}>
+              月次締め
+            </Link>
+            <Link className="underline" href={`/accounting/audit-logs?householdId=${context.currentHouseholdId}&ledgerId=${context.currentLedgerId}`}>
+              監査ログ
+            </Link>
           </div>
         </div>
         <Link

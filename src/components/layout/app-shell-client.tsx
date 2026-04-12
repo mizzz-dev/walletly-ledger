@@ -36,7 +36,7 @@ export const AppShellClient = ({ households, ledgers, fallbackActiveUser, unread
   const visibleLedgers = ledgers.filter((ledger) => ledger.householdId === selectedHouseholdId);
   const selectedLedgerId = searchParams.get("ledgerId") ?? visibleLedgers[0]?.id;
   const selectedLedger = visibleLedgers.find((ledger) => ledger.id === selectedLedgerId);
-  const menus = selectedLedger?.type === "work" ? [...baseMenus, { href: "/accounting/journals", label: "会計" }] : baseMenus;
+  const menus = selectedLedger?.type === "work" ? [...baseMenus, { href: "/accounting/journals", label: "会計" }, { href: "/accounting/closures", label: "月次締め" }, { href: "/accounting/audit-logs", label: "監査ログ" }] : baseMenus;
 
   const updateSearchParams = (nextHouseholdId?: string, nextLedgerId?: string) => {
     const params = new URLSearchParams(searchParams.toString());

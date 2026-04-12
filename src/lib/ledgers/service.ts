@@ -23,3 +23,32 @@ export const listLedgersByHouseholdId = async (householdId: string): Promise<Led
     currency: ledger.currency,
   }));
 };
+
+
+export const getLedgerById = async ({ householdId, ledgerId }: { householdId: string; ledgerId: string }): Promise<LedgerOption | null> => {
+  const accessToken = await getAccessTokenFromCookies();
+  const supabase = createServerSupabaseClient(accessToken);
+  const { data, error } = await supabase
+    .from("ledgers")
+    .select("id,household_id,name,type,currency")
+    .eq("household_id", householdId)
+    .eq("id", ledgerId)
+    .is("archived_at", null)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`台帳の取得に失敗しました: ${error.message}`);
+  }
+
+  if (!data) {
+    return null;
+  }
+
+  return {
+    id: data.id,
+    householdId: data.household_id,
+    name: data.name,
+    type: data.type,
+    currency: data.currency,
+  };
+};

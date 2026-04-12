@@ -67,9 +67,11 @@ export const listSettlementBaseRows = async ({
 export const createSettlementRecord = async (payload: SettlementInsertPayload) => {
   const accessToken = await getAccessTokenFromCookies();
   const supabase = createServerSupabaseClient(accessToken);
-  const { error } = await supabase.from("settlements").insert(payload);
+  const { data, error } = await supabase.from("settlements").insert(payload).select("id").single();
 
   if (error) {
     throw new Error(`精算記録の保存に失敗しました: ${error.message}`);
   }
+
+  return data.id as string;
 };
