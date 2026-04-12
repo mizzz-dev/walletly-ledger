@@ -29,6 +29,7 @@
 - 銀行明細レビュー機能（`/banking/review`）: draft自動生成、カテゴリ候補、プリセット適用、重複候補警告、確認後登録
 - 銀行連携基盤（mock provider）: 接続作成、口座同期、明細保存、重複排除、候補化、レビュー連携
 - work台帳向け会計モード基盤（`/accounting/journals`）: 勘定科目マスタ、税区分、仕訳下書き生成、仕訳保存
+- 税務エクスポート基盤（work台帳）: 仕訳CSV（generic）、試算表（簡易）、総勘定元帳（簡易）、税区分集計プレビュー
 - 分割ロジック / 清算ロジック / payload整形 / 集計ロジック / 銀行候補生成の単体テスト
 
 ## データアクセス構成
@@ -53,6 +54,10 @@
 - `src/lib/banking/matcher.ts` : カテゴリ推定 + プリセット適用 + split preview + 重複候補統合
 - `src/lib/accounting/*` : 仕訳下書き生成・勘定科目/税区分マッピング・貸借一致判定
 - `src/lib/accounting/repositories/accounting-repository.ts` : 仕訳 / 仕訳明細 / 勘定科目のSupabaseアクセス
+- `src/lib/accounting/repositories/reporting-repository.ts` : 会計レポート/エクスポート向け仕訳明細取得
+- `src/lib/accounting/export/*` : export row整形、CSV生成、将来フォーマット変換の拡張ポイント
+- `src/lib/accounting/reports/*` : 勘定科目別集計、試算表、元帳、税区分集計の純粋ロジック
+- `src/lib/accounting/reporting-service.ts` : 期間正規化、work台帳ガード、repository/report/exportのオーケストレーション
 
 ## 画面ごとの使い方
 ### 支出登録 `/transactions/new`
@@ -101,6 +106,45 @@
 - transaction 由来の仕訳下書き変換ロジック
 - bank / ocr draftから将来仕訳化するための共通変換関数の土台
 - RLSで household/ledger/work スコープを維持
+
+### 税務エクスポート / 会計レポート（work台帳）
+- `/accounting/exports`
+  - 期間指定で仕訳明細を抽出
+  - generic CSV をダウンロード（owner/editor のみ）
+  - 税区分別の金額・件数をプレビュー
+- `/accounting/reports/trial-balance`
+  - 科目別の借方/貸方/差額を一覧表示
+  - 合計借方・合計貸方と貸借一致判定を表示
+- `/accounting/reports/general-ledger`
+  - 勘定科目を選択して元帳向け明細を表示
+  - 相手科目、税区分、source_type/source_reference_id を追跡可能
+
+仕訳CSV（generic）の列順 / 文字コード:
+- 文字コード: UTF-8
+- 列順:
+  - `journal_date`
+  - `description`
+  - `line_no`
+  - `debit_account_code`
+  - `debit_account_name`
+  - `credit_account_code`
+  - `credit_account_name`
+  - `amount`
+  - `tax_code`
+  - `memo`
+  - `source_type`
+  - `source_reference_id`
+
+今回の対象 / 非対象:
+- 対象
+  - 仕訳CSV出力基盤（generic）
+  - 勘定科目別集計、試算表基礎、総勘定元帳基礎、税区分集計
+  - 将来の freee / マネーフォワード / 弥生 互換を見据えたフォーマット変換層の雛形
+- 非対象
+  - PDF帳票の完成版
+  - 電子申告フォーマット
+  - 厳密な消費税申告計算
+  - 会計ソフト完全互換保証
 
 ### 取引一覧 `/transactions`
 - 現在選択中の世帯 / 台帳に紐づく取引を新しい順で表示
@@ -195,6 +239,10 @@ NEXT_PUBLIC_USE_MOCK_PRESET=false
 7. `/dashboard` を開き、同じ世帯 / 台帳の支出が集計表示されることを確認
 8. `work` 台帳を選択し `/accounting/journals/new` で取引起点の仕訳下書きを生成
 9. 勘定科目・税区分を確認して保存し、`/accounting/journals` 一覧に反映されることを確認
+10. `/accounting/exports` で期間を指定し、税区分集計プレビューが表示されることを確認
+11. owner/editor で「仕訳CSVをダウンロード」を実行し、CSV列順がREADME記載と一致することを確認
+12. `/accounting/reports/trial-balance` で貸借一致判定と合計行を確認
+13. `/accounting/reports/general-ledger` で勘定科目を選択し、相手科目とsource情報を確認
 
 ## 現時点の制約
 - 取引一覧の詳細フィルタ（カテゴリ/支払者/期間）は未実装
@@ -205,8 +253,9 @@ NEXT_PUBLIC_USE_MOCK_PRESET=false
 - 銀行連携は「自動候補生成 + ユーザー確認」まで実装（完全自動承認は未対応）
 - 会計モードは `work` 台帳のみ対応（`family/custom` の会計入力UIは未提供）
 - 仕訳作成は現時点で「取引起点の2行仕訳（借方/貸方）」を基本とし、複合仕訳UIは未実装
-- 消費税の厳密計算・税額自動算出・申告帳票出力は未実装（税区分コード保持まで）
-- freee/マネーフォワード/弥生向け完全互換CSV・API連携は未実装
+- 税務エクスポートは generic CSV と簡易レポートまで（電子申告/申告書生成は未対応）
+- 消費税の厳密計算・税額自動算出・申告帳票出力は未実装（税区分集計は金額サマリのみ）
+- freee/マネーフォワード/弥生向けは変換層の拡張ポイントのみ用意（完全互換CSV・API連携は未実装）
 - カテゴリ推定はルールベースで、ユーザー修正の学習反映は未実装
 - 入金（inflow）はレビュー表示のみで、支出登録の自動対象外
 - 銀行連携providerはmock実装。実運用APIトークン暗号化・KMS連携は未実装
@@ -234,9 +283,11 @@ NEXT_PUBLIC_USE_MOCK_PRESET=false
 - 重複判定のスコアリング改善と自動承認（安全閾値付き）
 - 入出金を活用した自動split提案
 - 明細から会計仕訳（journals / journal_lines）候補生成
-- 元帳 / 試算表ビュー
-- 仕訳CSVエクスポート
-- 消費税集計と税務エクスポート強化
+- freee / マネーフォワード / 弥生 互換レイアウトへのCSV変換実装
+- 元帳PDFと帳票出力（印刷最適化）
+- 消費税集計の精緻化（課税売上/課税仕入/控除計算）
+- 確定申告 / 年末調整向け出力
+- 月次締め処理とロック
 - transaction変更時の仕訳再生成・差分管理
 - みんなの銀行本接続 / アグリゲータ接続（Moneytree等）
 - 収入/支出を統合したキャッシュフロー分析
