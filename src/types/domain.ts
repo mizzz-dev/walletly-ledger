@@ -86,6 +86,7 @@ export type AccountingSourceType = "manual" | "transaction" | "bank" | "ocr";
 export type JournalStatus = "draft" | "posted";
 export type DebitCredit = "debit" | "credit";
 export type AccountCategory = "asset" | "liability" | "equity" | "revenue" | "expense";
+export type ExportFormat = "generic_csv" | "yayoi_like" | "freee_like" | "mf_like";
 
 export interface AccountMaster {
   id: string;
@@ -153,6 +154,63 @@ export interface Journal {
   createdAt: string;
   updatedAt: string;
   lines: JournalLine[];
+}
+
+export interface JournalExportRow {
+  journalDate: string;
+  description: string;
+  lineNo: number;
+  debitAccountCode: string;
+  debitAccountName: string;
+  creditAccountCode: string;
+  creditAccountName: string;
+  amount: number;
+  taxCode: string | null;
+  memo: string | null;
+  sourceType: AccountingSourceType | null;
+  sourceReferenceId: string | null;
+}
+
+export interface LedgerReportRow {
+  journalId: string;
+  journalDate: string;
+  description: string;
+  lineNo: number;
+  dc: DebitCredit;
+  accountCode: string;
+  accountName: string;
+  counterpartAccountCodes: string[];
+  counterpartAccountNames: string[];
+  amount: number;
+  taxCode: string | null;
+  memo: string | null;
+  sourceType: AccountingSourceType | null;
+  sourceReferenceId: string | null;
+}
+
+export interface AccountSummaryRow {
+  accountCode: string;
+  accountName: string;
+  accountCategory: AccountCategory;
+  totalDebit: number;
+  totalCredit: number;
+  balance: number;
+}
+
+export interface TrialBalanceRow {
+  accountCode: string;
+  accountName: string;
+  accountCategory: AccountCategory;
+  debit: number;
+  credit: number;
+  diff: number;
+}
+
+export interface TaxSummaryRow {
+  taxCode: string;
+  taxLabel: string;
+  totalAmount: number;
+  lineCount: number;
 }
 
 export interface TransactionDraft {

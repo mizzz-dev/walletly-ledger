@@ -39,6 +39,17 @@ export default async function AccountingJournalsPage({
         <div>
           <h1 className="text-xl font-bold">会計仕訳（work台帳）</h1>
           <p className="text-xs text-foreground/70">取引由来の仕訳ドラフトを確認して保存できます。</p>
+          <div className="mt-2 flex flex-wrap gap-2 text-xs">
+            <Link className="underline" href={`/accounting/exports?householdId=${context.currentHouseholdId}&ledgerId=${context.currentLedgerId}`}>
+              税務エクスポート
+            </Link>
+            <Link className="underline" href={`/accounting/reports/trial-balance?householdId=${context.currentHouseholdId}&ledgerId=${context.currentLedgerId}`}>
+              試算表
+            </Link>
+            <Link className="underline" href={`/accounting/reports/general-ledger?householdId=${context.currentHouseholdId}&ledgerId=${context.currentLedgerId}`}>
+              総勘定元帳
+            </Link>
+          </div>
         </div>
         <Link
           className="rounded-lg border border-border px-3 py-2 text-sm hover:bg-muted"
