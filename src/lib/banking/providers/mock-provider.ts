@@ -7,6 +7,8 @@ export class MockBankProviderClient implements BankProviderClient {
   provider = "mock" as const;
 
   async listAccounts(_connection: BankConnection): Promise<ProviderAccount[]> {
+    void _connection;
+
     return [
       {
         providerAccountId: "mock-account-main",
@@ -20,6 +22,8 @@ export class MockBankProviderClient implements BankProviderClient {
   }
 
   async syncTransactions(_connection: BankConnection, account: ProviderAccount): Promise<ProviderTransaction[]> {
+    void _connection;
+
     return [
       {
         providerTransactionId: `${account.providerAccountId}-tx-001`,
