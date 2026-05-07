@@ -6,7 +6,9 @@ const today = new Date().toISOString().slice(0, 10);
 export class MockBankProviderClient implements BankProviderClient {
   provider = "mock" as const;
 
-  async listAccounts(_connection: BankConnection): Promise<ProviderAccount[]> {
+  async listAccounts(connection: BankConnection): Promise<ProviderAccount[]> {
+    void connection;
+
     return [
       {
         providerAccountId: "mock-account-main",
@@ -19,7 +21,9 @@ export class MockBankProviderClient implements BankProviderClient {
     ];
   }
 
-  async syncTransactions(_connection: BankConnection, account: ProviderAccount): Promise<ProviderTransaction[]> {
+  async syncTransactions(connection: BankConnection, account: ProviderAccount): Promise<ProviderTransaction[]> {
+    void connection;
+
     return [
       {
         providerTransactionId: `${account.providerAccountId}-tx-001`,
